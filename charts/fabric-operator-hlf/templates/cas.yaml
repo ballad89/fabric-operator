@@ -27,7 +27,7 @@ spec:
       registry:
         identities:
         {{ toYaml .identities | indent 8 }}
-      debug: true
+      debug: {{ .debug }}
       signing:
         default:
           expiry: {{ .expiry }}

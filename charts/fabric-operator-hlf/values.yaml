@@ -4,6 +4,7 @@ cas:
     affiliations:
     replicas: 1
     expiry: "87600h0m0s"
+    debug:
     ingress:
       domain: ""
       class: ""
@@ -13,8 +14,10 @@ cas:
         repo:
       pvc:
         class:
+      resources:
     init:
       image:
         repo:
+      resources:
     service:
       type: ClusterIP
