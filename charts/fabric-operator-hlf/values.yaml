@@ -1,0 +1,20 @@
+cas:
+  - name: "org-ca1"
+    identities:
+    affiliations:
+    replicas: 1
+    expiry: "87600h0m0s"
+    ingress:
+      domain: ""
+      class: ""
+      tlsSecretName: ""
+    ca:
+      image:
+        repo:
+      pvc:
+        class:
+    init:
+      image:
+        repo:
+    service:
+      type: ClusterIP

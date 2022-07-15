@@ -1,0 +1,6 @@
+apiVersion: v2
+name: fabric-operator
+description: A Helm chart to install the fabric operator and install the fabric components
+type: application
+version: 0.1.0
+appVersion: "1.16.0"
