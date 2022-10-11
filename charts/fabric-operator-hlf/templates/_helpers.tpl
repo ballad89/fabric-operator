@@ -60,3 +60,44 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{- define "fabric-operator-hlf.caCert" -}}
+    {{- if .caConnectionProfileConfig }}
+      {{- $cpMap := split "/" .caConnectionProfileConfig }}
+      {{- $cpData := (lookup "v1" "ConfigMap" $cpMap._0 $cpMap._1).binaryData }}
+      {{- if $cpData }}
+        {{- $profile := (index $cpData "profile.json") | b64dec | fromJson }}
+        {{- $profile.tls.cert }} 
+      {{- end }}
+    {{- else }}
+     {{ "" }}
+    {{- end }}
+{{- end }}
+
+{{- define "fabric-operator-hlf.caHost" -}}
+  {{- if .caConnectionProfileConfig }}
+      {{- $cpMap := split "/" .caConnectionProfileConfig }}
+      {{- $cpData :=  (lookup "v1" "ConfigMap" $cpMap._0 $cpMap._1).binaryData }}
+      {{- if $cpData }}
+        {{- $profile := (index $cpData "profile.json") | b64dec | fromJson }}
+        {{- $endpoint := $profile.endpoints.api | split "/"  }}
+        {{- (split ":" $endpoint._2)._0 }}
+      {{- end }}
+    {{- else }}
+      {{ "" }}
+    {{- end }}
+{{- end }}
+
+{{- define "fabric-operator-hlf.caPort" -}}
+  {{- if .caConnectionProfileConfig }}
+      {{- $cpMap := split "/" .caConnectionProfileConfig }}
+      {{- $cpData :=  (lookup "v1" "ConfigMap" $cpMap._0 $cpMap._1).binaryData }}
+      {{- if $cpData }}
+        {{- $profile := (index $cpData "profile.json") | b64dec | fromJson }}
+        {{- $endpoint := $profile.endpoints.api | split "/" }}
+        {{- (split ":" $endpoint._2)._1 }}
+      {{- end }}
+    {{- else }}
+      {{ "" }}
+    {{- end }}
+{{- end }}

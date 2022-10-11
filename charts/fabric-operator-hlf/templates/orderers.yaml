@@ -1,0 +1,88 @@
+{{- range $org := .Values.orgs }}
+{{- if $org.orderers }}
+---
+apiVersion: v1
+kind: List
+items:
+{{- range $org.orderers }}
+  - apiVersion: ibp.com/v1beta1
+    kind: IBPOrderer
+    metadata:
+      name: {{ .name }}
+    spec:
+      version: {{ .version | default $.Values.global.orderer.version }}
+      domain: {{ $org.domain | default $.Values.global.domain }}
+      license:
+        accept: true
+      action:
+        enroll: {}
+        reenroll: {}
+      clusterSize: {{ .clusterSize }}
+      clusterconfigoverride:
+        - general:
+            keepalive:
+              serverMinInterval: 61s
+        - general:
+            keepalive:
+              serverMinInterval: 61s
+        - general:
+            keepalive:
+              serverMinInterval: 61s
+      {{- $current := .}}
+      clustersecret:
+        {{- range $num := until (int .clusterSize) }}
+           - enrollment:
+              component:
+                caname: ca
+                cahost: {{ include "fabric-operator-hlf.caHost" $org }}
+                caport: {{ include "fabric-operator-hlf.caPort" $org | quote }}
+                catls:
+                  cacert: {{ include "fabric-operator-hlf.caCert" $org }}
+                enrollid: "orderer{{ $num }}"
+                enrollsecret: "orderer{{ $num }}pw"
+              tls:
+                caname: tlsca
+                cahost: {{ include "fabric-operator-hlf.caHost" $org }}
+                caport: {{ include "fabric-operator-hlf.caPort" $org | quote }}
+                catls:
+                  cacert: {{ include "fabric-operator-hlf.caCert" $org }}
+                enrollid: "orderer{{ $num }}"
+                enrollsecret: "orderer{{ $num }}pw"
+                csr:
+                  hosts:
+                    - "{{ $current.name }}node{{ $num }}"
+                    - "{{ $current.name }}node{{ $num }}.{{ $org.domain | default $.Values.global.domain }}"
+        {{- end }}
+      customNames:
+        pvc: {}
+      images:
+        ordererInitImage: {{ (.init).image.repo | default $.Values.global.init.image.repo }}
+        ordererInitTag: {{ (.init).image.tag | default $.Values.global.init.image.tag }}
+        ordererImage: {{ (.orderer).image.repo | default $.Values.global.orderer.image.repo }}
+        ordererTag: {{ (.orderer).image.tag | default $.Values.global.orderer.image.tag }}
+        grpcwebImage: {{ (.grpc).image.repo | default $.Values.global.grpc.image.repo }}
+        grpcwebTag: {{ (.grpc).image.tag | default $.Values.global.grpc.image.tag }}
+      ingress:
+        class: {{ (.ingress).class | default $.Values.global.ingress.class }}
+        tlsSecretName: {{ (.ingress).tlsSecretName | default $.Values.global.ingress.tlsSecretName }}
+      mspID: {{ $org.mispID }}
+      ordererType: etcdraft
+      orgName: {{ $org.mispID }}
+      useChannelLess: true
+      systemChannelName: {{ .systemChannelName }}
+      resources:
+        init:
+          {{- (toYaml ((.init).resources | default $.Values.global.init.resources)) | nindent 10 }}
+        orderer:
+          {{- (toYaml ((.orderer).resources | default $.Values.global.orderer.resources)) | nindent 10 }}
+        proxy:
+          {{- (toYaml ((.proxy).resources | default $.Values.global.proxy.resources)) | nindent 10 }}
+      service:
+        type: {{ (.service).type | default $.Values.global.orderer.service.type }}
+      storage:
+        orderer:
+          class: {{ (.pvc).class | default $.Values.global.orderer.pvc.class }}
+          size: {{ (.pvc).orderer.size | default $.Values.global.orderer.pvc.orderer.size }}
+{{- end }}
+{{- end }}
+{{- end }}

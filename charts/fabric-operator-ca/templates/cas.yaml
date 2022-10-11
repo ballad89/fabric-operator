@@ -1,0 +1,61 @@
+{{- range $org := .Values.orgs }}
+{{- with $org.ca }}
+---
+apiVersion: ibp.com/v1beta1
+kind: IBPCA
+metadata:
+  name: {{ .name }}
+spec:
+  action:
+    renew: {}
+  configoverride:
+    ca:
+      affiliations:
+      {{- toYaml .affiliations | nindent 12 }} 
+      registry:
+        identities:
+        {{- toYaml .identities | nindent 14 }}
+      debug: true
+      signing:
+        default:
+          expiry: {{ .expiry | default $.Values.global.ca.expiry }}
+    tlsca:
+      affiliations:
+        {{- toYaml .affiliations | nindent 12 }} 
+      registry:
+        identities:
+        {{- toYaml .identities | nindent 14 }}
+      debug: {{ .debug | default $.Values.global.ca.debug }}
+      signing:
+        default:
+          expiry: {{ .expiry | default $.Values.global.ca.expiry }}
+  customNames:
+    pvc: {}
+  images:
+    caImage: {{ (.ca).image.repo | default $.Values.global.ca.image.repo }}
+    caTag: {{ (.ca).image.tag | default $.Values.global.ca.image.tag }}
+    caInitImage: {{ (.init).image.repo | default $.Values.global.init.image.repo }}
+    caInitTag: {{ (.init).image.tag | default $.Values.global.init.image.tag }}
+  domain: {{ $org.domain | default $.Values.global.domain }}
+  {{ if or (.ingress).enabled $.Values.global.ingress.enabled }}
+  ingress:
+    class: {{ (.ingress).class | default $.Values.global.ingress.class }}
+    tlsSecretName: {{ (.ingress).tlsSecretName | default $.Values.global.ingress.tlsSecretName }}
+  {{ end }}
+  license:
+    accept: true
+  replicas: {{ .replicas }}
+  resources:
+    ca:
+    {{- (toYaml ((.ca).resources | default $.Values.global.ca.resources)) | nindent 10 }}
+    init:
+    {{- (toYaml ((.init).resources | default $.Values.global.init.resources)) | nindent 10 }}
+  service:
+    type: {{ (.service).type | default $.Values.global.ca.service.type }}
+  storage:
+    ca:
+      class: {{ (.ca).pvc.class | default $.Values.global.ca.pvc.class }}
+      size: {{ (.ca).pvc.size | default $.Values.global.ca.pvc.size }}
+  version: {{ .version | default $.Values.global.ca.version }}
+{{- end }}
+{{- end }}

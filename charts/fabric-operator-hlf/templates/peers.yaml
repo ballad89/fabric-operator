@@ -1,0 +1,81 @@
+{{- range $org := .Values.orgs }}
+{{- if $org.peers }}
+---
+apiVersion: v1
+kind: List
+items:
+{{- range $org.peers }}
+  - apiVersion: ibp.com/v1beta1
+    kind: IBPPeer
+    metadata:
+      name: {{ .name }}
+    spec:
+      version: {{ .version | default $.Values.global.peer.version }}
+      domain: {{ $org.domain | default $.Values.global.domain }}
+      peerExternalEndpoint: {{ .endpoint }}
+      license:
+        accept: true
+      action:
+        enroll: {}
+        reenroll: {}
+      configoverride:
+        peer:
+          keepalive:
+            minInterval: 61s
+      customNames:
+        pvc: {}
+      images:
+        peerInitImage: {{ (.init).image.repo | default $.Values.global.init.image.repo }}
+        peerInitTag: {{ ((.init).image).tag | default $.Values.global.init.image.tag }}
+        peerImage: {{ (.peer).image.repo | default $.Values.global.peer.image.repo }}
+        peerTag: {{ (.peer).image.tag | default $.Values.global.peer.image.tag }}
+        grpcwebImage: {{ (.grpc).image.repo | default $.Values.global.grpc.image.repo }}
+        grpcwebTag: {{ (.grpc).image.tag | default $.Values.global.grpc.image.tag }}
+      mspID: {{ $org.mispID }}
+      mspSecret: {{ $org.mispSecret }}
+      secret:
+        enrollment:
+          component:
+            caname: ca
+            cahost: {{ include "fabric-operator-hlf.caHost" $org }}
+            caport: {{ include "fabric-operator-hlf.caPort" $org | quote }}
+            catls:
+              cacert: {{ include "fabric-operator-hlf.caCert" $org }}
+            enrollid: {{ .enrollID }}
+            enrollsecret: {{ .enrollSecret }}
+          tls:
+            caname: tlsca
+            cahost: {{ include "fabric-operator-hlf.caHost" $org }}
+            caport: {{ include "fabric-operator-hlf.caPort" $org | quote }}
+            catls:
+              cacert: {{ include "fabric-operator-hlf.caCert" $org }}
+            enrollid: {{ .enrollID }}
+            enrollsecret: {{ .enrollSecret }}
+            csr:
+              hosts:
+              {{- range .peerSans }}
+                - {{ . }}
+              {{- end }}
+      chaincodeBuilderConfig:
+        peername: {{ .peerName }}
+      service:
+        type: {{ (.service).type | default $.Values.global.peer.service.type }}
+      stateDb: leveldb
+      storage:
+        peer:
+          class: {{ (.pvc).class | default $.Values.global.peer.pvc.class }}
+          size: {{ (.pvc).peer.size | default $.Values.global.peer.pvc.peer.size }}
+        statedb:
+          class: {{ (.pvc).class | default $.Values.global.peer.pvc.class }}
+          size: {{ (.pvc).statedb.size | default $.Values.global.peer.pvc.statedb.size }}
+      resources:
+        init:
+          {{- (toYaml ((.init).resources | default $.Values.global.init.resources)) | nindent 10 }}
+        peer:
+          {{- (toYaml ((.peer).resources | default $.Values.global.peer.resources)) | nindent 10 }}
+        proxy:
+          {{- (toYaml ((.proxy).resources | default $.Values.global.proxy.resources)) | nindent 10 }}
+{{- end }}
+{{- end }}
+{{- end }}
+

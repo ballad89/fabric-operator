@@ -1,0 +1,306 @@
+{{- if .Values.channels }}
+{{ range $channel := .Values.channels }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ printf "%s-%s-%s" $.Release.Name $channel.name }}
+  labels:
+    {{- include "fabric-operator-hlf.labels" $ | nindent 4 }}
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        {{- include "fabric-operator-hlf.labels" $ | nindent 8 }}
+    spec:
+      restartPolicy: "Never"
+      volumes:
+      {{- range $org := $channel.peerOrgs }}
+        - name: {{ $org.name}}-peer-connection-profile
+          configMap:
+            name: {{ $org.connectionProfileConfig }}
+      {{- end }}
+      {{- range $org := $channel.ordererOrgs }}
+        - name: {{ $org.name}}-orderer-connection-profile
+          configMap:
+            name: {{ $org.connectionProfileConfig }}
+      {{- end }}
+      {{- range $org := $channel.ordererOrgs }}
+      {{- range $num := until (int $org.clusterSize) }}
+        - name: {{ $org.name }}-orderersnode{{ $num }}-connection-profile
+          configMap:
+            name: {{ $org.name }}-orderersnode{{ $num }}
+      {{- end }}
+      {{- end }}
+      containers:
+        - name: create-user
+          image: {{ $.Values.global.tools.image.repo }}:{{ $.Values.global.tools.image.tag }}
+          imagePullPolicy: "IfNotPresent"
+          env:
+            name: "TEMP_DIR"
+            value: "{{ $.Values.global.tmpPath }}"
+          command:
+            - bash
+            - -c
+            - |
+              function channel_up() {
+                set -x
+
+                enroll_org_admins
+
+                create_channel_msp
+                create_genesis_block
+
+                join_channel_orderers
+                join_channel_peers
+              }
+
+              function enroll_org_admins() {
+
+                  {{- range $org := $channel.peerOrgs }}
+                    enroll_org_admin peer {{ $org.name }} {{ $org.adminCreds.username }} {{ $org.adminCreds.password }}
+                  {{- end }}
+
+                  {{- range $org := $channel.ordererOrgs }}
+                    enroll_org_admin orderer {{ $org.name }} {{ $org.adminCreds.username }} {{ $org.adminCreds.password }}
+                  {{- end }}
+
+                  pop_fn
+              }
+
+              function enroll_org_admin() {
+                local type=$1
+                local org=$2
+                local username=$3
+                local password=$4
+
+                echo "Enrolling $type org admin $username"
+
+                ENROLLMENTS_DIR=${TEMP_DIR}/enrollments
+                ORG_ADMIN_DIR=${ENROLLMENTS_DIR}/${org}/users/${username}
+
+                # skip the enrollment if the admin certificate is available.
+                if [ -f "${ORG_ADMIN_DIR}/msp/keystore/key.pem" ]; then
+                    echo "Found an existing admin enrollment at ${ORG_ADMIN_DIR}"
+                    return
+                fi
+
+                # Retrieve the CA information from Kubernetes
+                CA_NAME=${org}-${type}-ca
+                CA_DIR=${TEMP_DIR}/cas/${CA_NAME}
+                CONNECTION_PROFILE=${CA_DIR}/connection-profile.json
+
+                # extract the CA enrollment URL and tls cert from the org connection profile
+                CA_AUTH=${username}:${password}
+                CA_ENDPOINT=$(jq -r .endpoints.api $CONNECTION_PROFILE)
+                CA_HOST=$(echo ${CA_ENDPOINT} | cut -d/ -f3 | tr ':' '\n' | head -1)
+                CA_PORT=$(echo ${CA_ENDPOINT} | cut -d/ -f3 | tr ':' '\n' | tail -1)
+                CA_URL=https://${CA_AUTH}@${CA_HOST}:${CA_PORT}
+
+                jq -r .tls.cert $CONNECTION_PROFILE | base64 -d >& $CA_DIR/tls-cert.pem
+
+                # enroll the admin user
+                FABRIC_CA_CLIENT_HOME=${ORG_ADMIN_DIR} fabric-ca-client enroll --url ${CA_URL} --tls.certfiles ${CA_DIR}/tls-cert.pem
+
+                # Construct an msp config.yaml
+                CA_CERT_NAME=${CA_NAME}-ca-$(echo {{ $.Values.global.domain }} | tr -s . -)-${CA_PORT}.pem
+
+                create_msp_config_yaml ${CA_NAME} ${CA_CERT_NAME} ${ORG_ADMIN_DIR}/msp
+
+                # private keys are hashed by name, but we only support one enrollment.
+                # test-network examples refer to this as "server.key", which is incorrect.
+                # This is the private key used to endorse transactions using the admin's
+                # public key.
+                mv ${ORG_ADMIN_DIR}/msp/keystore/*_sk ${ORG_ADMIN_DIR}/msp/keystore/key.pem
+
+
+                # enroll the admin user at the TLS CA - used for the channel admin API
+                FABRIC_CA_CLIENT_HOME=${ORG_ADMIN_DIR} \
+                    fabric-ca-client enroll \
+                    --url ${CA_URL} \
+                    --tls.certfiles ${CA_DIR}/tls-cert.pem \
+                    --mspdir ${ORG_ADMIN_DIR}/tls \
+                    --caname tlsca
+
+                mv ${ORG_ADMIN_DIR}/tls/keystore/*_sk ${ORG_ADMIN_DIR}/tls/keystore/key.pem
+              }
+
+              function create_msp_config_yaml() {
+                local ca_name=$1
+                local ca_cert_name=$2
+                local msp_dir=$3
+                echo "Creating msp config ${msp_dir}/config.yaml with cert ${ca_cert_name}"
+
+                mkdir -p ${msp_dir} 
+
+                cat << EOF > ${msp_dir}/config.yaml
+              NodeOUs:
+                Enable: true
+                ClientOUIdentifier:
+                  Certificate: cacerts/${ca_cert_name}
+                  OrganizationalUnitIdentifier: client
+                PeerOUIdentifier:
+                  Certificate: cacerts/${ca_cert_name}
+                  OrganizationalUnitIdentifier: peer
+                AdminOUIdentifier:
+                  Certificate: cacerts/${ca_cert_name}
+                  OrganizationalUnitIdentifier: admin
+                OrdererOUIdentifier:
+                  Certificate: cacerts/${ca_cert_name}
+                  OrganizationalUnitIdentifier: orderer
+              EOF
+              }
+
+
+              function create_channel_msp() {
+                  {{- range $org := $channel.ordererOrgs }}
+                  create_channel_org_msp orderer {{ $org.name }}
+                  {{- end }}
+
+                  {{- range $org := $channel.peerOrgs }}
+                  create_channel_org_msp peer {{ $org.name }}
+                  {{- end }}
+
+
+                  {{- range $org := $channel.ordererOrgs }}
+                  {{- range $num := until (int $org.clusterSize) }}
+                  extract_orderer_tls_cert {{ $org.name }} orderersnode{{ $num }}
+                  {{- end }}
+                  {{- end }}
+              }
+                
+              function create_channel_org_msp() {
+                local type=$1
+                local org=$2
+                echo "Creating channel org $org MSP"
+
+                CA_DIR=${TEMP_DIR}/cas/${org}-${type}-ca
+                ORG_MSP_DIR=${TEMP_DIR}/channel-msp/${type}Organizations/${org}/msp
+
+                mkdir -p ${ORG_MSP_DIR}/cacerts
+                mkdir -p ${ORG_MSP_DIR}/tlscacerts
+
+                jq -r .ca.signcerts ${CA_DIR}/connection-profile.json | base64 -d >& ${ORG_MSP_DIR}/cacerts/ca-signcert.pem
+                jq -r .tlsca.signcerts ${CA_DIR}/connection-profile.json | base64 -d >& ${ORG_MSP_DIR}/tlscacerts/tlsca-signcert.pem
+
+                create_msp_config_yaml ${org}-${type}-ca ca-signcert.pem ${ORG_MSP_DIR}
+              }
+
+              function extract_orderer_tls_cert() {
+                local org=$1
+                local orderer=$2
+
+                echo "Extracting TLS cert for $org $orderer"
+
+                ORDERER_NAME=${org}-${orderer}
+                ORDERER_DIR=${TEMP_DIR}/channel-msp/ordererOrganizations/${org}/orderers/${ORDERER_NAME}
+                ORDERER_TLS_DIR=${ORDERER_DIR}/tls
+                CONNECTION_PROFILE=${ORDERER_DIR}/connection-profile.json
+
+                mkdir -p $ORDERER_TLS_DIR/signcerts
+
+                jq -r .tls.signcerts ${CONNECTION_PROFILE} \
+                    | base64 -d \
+                    >& $ORDERER_TLS_DIR/signcerts/tls-cert.pem
+              }
+
+
+              function create_genesis_block() {
+                mkdir -p ${TEMP_DIR}/config
+
+                cat << EOF > ${TEMP_DIR}/config/core.yaml
+              {{ include "fabric-operator-hlf.msp-core" $ | nindent 15 }}
+              EOF
+
+
+                cat << EOF > ${TEMP_DIR}/config/configtx.yaml
+              {{- include "fabric-operator-hlf.channel-configtx" $ | nindent 15 }}
+              EOF
+
+                FABRIC_CFG_PATH=${TEMP_DIR}/config \
+                    configtxgen \
+                    -profile      TwoOrgsApplicationGenesis \
+                    -channelID    {{ $channel.name }} \
+                    -outputBlock  ${TEMP_DIR}/genesis_block.pb
+
+                #  configtxgen -inspectBlock ${TEMP_DIR}/genesis_block.pb
+
+              }
+
+              function join_channel_orderers() {
+                
+                {{- range $org := $channel.ordererOrgs }}
+                {{- range $num := until (int $org.clusterSize) }}
+                
+                join_channel_orderer {{ $org.name }} orderersnode{{ $num }}
+                {{- end }}
+                {{- end }}
+
+                # todo: readiness / liveiness equivalent for channel?  Needs a little bit to settle before peers can join.
+                sleep 10
+              }
+
+                # Request from the channel ADMIN api that the orderer joins the target channel
+              function join_channel_orderer() {
+                local org=$1
+                local orderer=$2
+
+                # The client certificate presented in this case is the admin USER TLS enrollment key.  This is a stronger assertion
+                # of identity than the Docker Compose network, which transmits the orderer NODE TLS key pair directly
+
+                osnadmin channel join \
+                    --orderer-address ${org}-${orderer}-admin.{{ $.Values.global.domain }} \
+                    --ca-file         ${TEMP_DIR}/channel-msp/ordererOrganizations/${org}/orderers/${org}-${orderer}/tls/signcerts/tls-cert.pem \
+                    --client-cert     ${TEMP_DIR}/enrollments/${org}/users/${org}admin/tls/signcerts/cert.pem \
+                    --client-key      ${TEMP_DIR}/enrollments/${org}/users/${org}admin/tls/keystore/key.pem \
+                    --channelID       {{ $channel.name }} \
+                    --config-block    ${TEMP_DIR}/genesis_block.pb
+              }
+
+              function join_channel_peers() {
+                join_org_peers 1
+                join_org_peers 2
+              }
+
+                function join_org_peers() {
+                local orgnum=$1
+                
+
+                # Join peers to channel
+                join_channel_peer $orgnum 1
+                #join_channel_peer $orgnum 2
+
+                
+                }
+
+                function join_channel_peer() {
+                local orgnum=$1
+                local peernum=$2
+
+                export_peer_context $orgnum $peernum
+
+                peer channel join \
+                    --blockpath   ${TEMP_DIR}/genesis_block.pb
+                }
+
+              
+              sleep 3600
+          volumeMounts:
+            {{- range $org := $channel.peerOrgs }}
+            - name: {{ $org.name}}-peer-connection-profile
+              mountPath: {{ $.Values.global.tmpPath }}/cas/{{ $org.name}}-peer-ca/connection-profile.json
+            {{- end }}
+            {{- range $org := $channel.ordererOrgs }}
+            - name: {{ $org.name}}-orderer-connection-profile
+              mountPath: {{ $.Values.global.tmpPath }}/cas/{{ $org.name}}-orderer-ca/connection-profile.json
+            {{- end }}
+            {{- range $org := $channel.ordererOrgs }}
+            {{- range $num := until (int $org.clusterSize) }}
+            - name:  {{ $org.name }}-orderersnode{{ $num }}
+              mountPath: {{ $.Values.global.tmpPath }}/channel-msp/ordererOrganizations/{{ $org.name}}/orderers/{{ $org.name }}-orderersnode{{ $num }}/connection-profile.json
+            {{- end }}
+            {{- end }}
+---
+{{- end }}
+{{- end }}

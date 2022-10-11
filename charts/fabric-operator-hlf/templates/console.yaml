@@ -1,0 +1,47 @@
+{{- with .Values.console }}
+apiVersion: ibp.com/v1beta1
+kind: IBPConsole
+metadata:
+  name: {{ .name }}
+spec:
+  arch:
+    - amd64
+  license:
+    accept: true
+  serviceAccountName: default
+  email: "{{ .email }}"
+  password: "{{ .password }}"
+  allowDefaultPassword: true
+  imagePullSecrets:
+    - ghcr-pull-secret
+  images:
+    consoleInitImage: {{ (.init).image.repo | default $.Values.global.init.image.repo }}
+    consoleInitTag: {{ (.init).image.tag | default $.Values.global.init.image.tag }}
+    consoleImage: {{ (.console).image.repo | default $.Values.global.console.image.repo }}
+    consoleTag: {{ (.console).image.tag | default $.Values.global.console.image.tag }}
+    deployerImage: {{ (.deployer).image.repo | default $.Values.global.deployer.image.repo }}
+    deployerTag: {{ (.deployer).image.tag | default $.Values.global.deployer.image.tag }}
+    configtxlatorImage: {{ (.configtxlator).image.repo | default $.Values.global.configtxlator.image.repo }}
+    configtxlatorTag: {{ (.configtxlator).image.tag | default $.Values.global.configtxlator.image.tag }}
+    couchdbImage: {{ (.couchdb).image.repo | default $.Values.global.couchdb.image.repo }} 
+    couchdbTag: {{ (.couchdb).image.tag | default $.Values.global.couchdb.image.tag }}
+  networkinfo:
+    domain: "{{ .domain | default $.Values.global.domain }}"
+  storage:
+    console:
+      class: {{ (.pvc).class | default $.Values.global.console.pvc.class }}
+      size: {{ (.pvc).console.size | default $.Values.global.console.pvc.console.size }}
+  usetags: true
+  version: {{ .version }}
+  resources:
+    init:
+      {{- (toYaml ((.init).resources | default $.Values.global.init.resources)) | nindent 6 }}
+    configtxlator:
+      {{- (toYaml ((.configtxlator).resources | default $.Values.global.configtxlator.resources)) | nindent 6 }}
+    couchdb:
+      {{- (toYaml ((.couchdb).resources | default $.Values.global.couchdb.resources)) | nindent 6 }}
+    deployer:
+      {{- (toYaml ((.deployer).resources | default $.Values.global.deployer.resources)) | nindent 6 }}
+    console:
+      {{- (toYaml ((.console).resources | default $.Values.global.console.resources)) | nindent 6 }}
+{{- end }}

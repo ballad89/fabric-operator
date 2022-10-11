@@ -1,0 +1,151 @@
+global:
+  domain: "fabric.ekoh-internal"
+  tmpPath: "/tmp"
+  ingress:
+    enabled: true
+    class: "nginx-fabric-internal"
+    tlsSecretName: ""
+  ca:
+    version: "1.5.5"
+    pvc:
+      class: "gp2"
+      size: "100M"
+    service:
+      type: ClusterIP
+    expiry: "87600h0m0s"
+    debug: true
+    image:
+      repo: hyperledger/fabric-ca
+      tag: "1.5.5"
+    resources:
+      limits:
+        cpu: 100m
+        memory: 200M
+      requests:
+        cpu: 10m
+        memory: 10M
+  init:
+    image:
+      repo: registry.access.redhat.com/ubi8/ubi-minimal
+      tag: "latest"
+    resources:
+      limits:
+        cpu: 100m
+        memory: 200M
+      requests:
+        cpu: 10m
+        memory: 10M
+
+orgs:
+  - name: "org0"
+    mispID: "Org1MSP"
+    ca:
+      name: "org0-ca"
+      host: "fabric-org0-ca.fabric.ekoh-internal"
+      port: "443"
+      identities:
+        - name: rcaadmin
+          pass: rcaadminpw
+          type: client
+          attrs:
+            hf.Registrar.Roles: "*"
+            hf.Registrar.DelegateRoles: "*"
+            hf.Revoker: true
+            hf.IntermediateCA: true
+            hf.GenCRL: true
+            hf.Registrar.Attributes: "*"
+            hf.AffiliationMgr: true
+        - name: orderer1
+          pass: orderer1pw
+          type: orderer
+        - name: orderer2
+          pass: orderer2pw
+          type: orderer
+        - name: orderer3
+          pass: orderer3pw
+          type: orderer
+        - name: org0admin
+          pass: org0adminpw
+          type: admin
+      affiliations:
+        org1:
+          - department1
+          - department2
+        org2:
+          - department1
+      replicas: 1
+    orderers:
+      name: org0-orderers
+      clusterSize: 3
+      systemChannelName: "testchainid"
+
+  - name: "org1"
+    mispID: "Org1MSP"
+    ca:
+      name: "org1-ca"
+      host: "fabric-org1-ca.fabric.ekoh-internal"
+      port: "443"
+      identities:
+        - name: rcaadmin
+          pass: rcaadminpw
+          type: client
+          attrs:
+            hf.Registrar.Roles: "*"
+            hf.Registrar.DelegateRoles: "*"
+            hf.Revoker: true
+            hf.IntermediateCA: true
+            hf.GenCRL: true
+            hf.Registrar.Attributes: "*"
+            hf.AffiliationMgr: true
+        - name: peer1
+          pass: peer1pw
+          type: peer
+        - name: peer2
+          pass: peer2pw
+          type: peer
+        - name: org1admin
+          pass: org1adminpw
+          type: admin
+      affiliations:
+        org1:
+          - department1
+          - department2
+        org2:
+          - department1
+      replicas: 1
+
+  - name: "org2"
+    connectionProfileConfig: "fabric/org2-connection-profile"
+    mispID: "Org1MSP"
+    ca:
+      name: "org2-ca"
+      host: "fabric-org2-ca.fabric.ekoh-internal"
+      port: "443"
+      identities:
+        - name: rcaadmin
+          pass: rcaadminpw
+          type: client
+          attrs:
+            hf.Registrar.Roles: "*"
+            hf.Registrar.DelegateRoles: "*"
+            hf.Revoker: true
+            hf.IntermediateCA: true
+            hf.GenCRL: true
+            hf.Registrar.Attributes: "*"
+            hf.AffiliationMgr: true
+        - name: peer1
+          pass: peer1pw
+          type: peer
+        - name: peer2
+          pass: peer2pw
+          type: peer
+        - name: org2admin
+          pass: org2adminpw
+          type: admin
+      affiliations:
+        org1:
+          - department1
+          - department2
+        org2:
+          - department1
+      replicas: 1

@@ -1,23 +1,187 @@
-cas:
-  - name: "org-ca1"
-    identities:
-    affiliations:
-    replicas: 1
-    expiry: "87600h0m0s"
-    debug:
-    ingress:
-      domain: ""
-      class: ""
-      tlsSecretName: ""
-    ca:
-      image:
-        repo:
-      pvc:
-        class:
-      resources:
-    init:
-      image:
-        repo:
-      resources:
+global:
+  domain: "fabric.ekoh-internal"
+  tmpPath: "/tmp"
+  ingress:
+    enabled: true
+    class: "nginx-fabric-internal"
+    tlsSecretName: ""
+  orderer:
+    version: "2.4.4"
+    image:
+      repo: "hyperledger/fabric-orderer"
+      tag: "2.4.4"
+    resources:
+      limits:
+        cpu: 600m
+        memory: 1200M
+      requests:
+        cpu: 10m
+        memory: 10M
     service:
       type: ClusterIP
+    pvc:
+      class: "gp2"
+      orderer:
+        size: "5G"
+  init:
+    image:
+      repo: registry.access.redhat.com/ubi8/ubi-minimal
+      tag: "latest"
+    resources:
+      limits:
+        cpu: 100m
+        memory: 200M
+      requests:
+        cpu: 10m
+        memory: 10M
+  proxy:
+    resources:
+      limits:
+        cpu: 100m
+        memory: 200M
+      requests:
+        cpu: 10m
+        memory: 10M
+  grpc:
+    image:
+      repo: "ghcr.io/hyperledger-labs/grpc-web"
+      tag: "latest"
+  peer:
+    version: "2.4.4"
+    image:
+      repo: "hyperledger/fabric-peer"
+      tag: "2.4.4"
+    service:
+      type: ClusterIP
+    resources:
+      limits:
+        cpu: 500m
+        memory: 1G
+      requests:
+        cpu: 10m
+        memory: 10M
+    pvc:
+      class: "gp2"
+      peer:
+        size: "5G"
+      statedb:
+        size: "10Gi"
+  configtxlator:
+    image:
+      repo: "hyperledger/fabric-tools"
+      tag: "2.4.4"
+    resources:
+      limits:
+        cpu: 25m
+        ephemeral-storage: 1G
+        memory: 50Mi
+      requests:
+        cpu: 25m
+        ephemeral-storage: 100M
+        memory: 50Mi
+  couchdb:
+    image:
+      repo: "couchdb"
+      tag: "3.2.1"
+    resources:
+      limits:
+        cpu: 500m
+        ephemeral-storage: 1Gi
+        memory: 1000Mi
+      requests:
+        cpu: 50m
+        ephemeral-storage: 100Mi
+        memory: 128Mi
+  deployer:
+    image:
+      repo: "ghcr.io/ibm-blockchain/fabric-deployer"
+      tag: "latest-amd64"
+    resources:
+      limits:
+        cpu: 100m
+        ephemeral-storage: 1G
+        memory: 200Mi
+      requests:
+        cpu: 100m
+        ephemeral-storage: 100M
+        memory: 128Mi
+  console:
+    image:
+      repo: "ghcr.io/hyperledger-labs/fabric-console"
+      tag: "latest"
+    resources:
+      limits:
+        cpu: 500m
+        ephemeral-storage: 1G
+        memory: 1000Mi
+      requests:
+        cpu: 50m
+        ephemeral-storage: 100M
+        memory: 128Mi
+    pvc:
+      class: "gp2"
+      console:
+        size: "5G"
+  tools:
+    image:
+      repo: "560696278034.dkr.ecr.eu-west-1.amazonaws.com/ekoh-online/fabric-tools"
+      tag: "master-994d07c1"
+
+orgs:
+  - name: "org0"
+    caConnectionProfileConfig: "fabric/org0-ca-connection-profile"
+    mispID: "Org1MSP"
+    orderers:
+      - name: org0-orderers
+        clusterSize: 1
+        systemChannelName: "testchainid"
+
+  - name: "org1"
+    caConnectionProfileConfig: "fabric/org1-ca-connection-profile"
+    mispID: "Org1MSP"
+    mispSecret: "org1-peer1-secret"
+    peers:
+      - name: "org1-peer1"
+        endpoint: "org1-peer1.fabric.ekoh-internal:443"
+        enrollID: "peer1"
+        enrollSecret: "peer1pw"
+        peerSans:
+          - "org1-peer1"
+          - "org1-peer1.svc"
+        peerName: "org1-peer1"
+
+  - name: "org2"
+    caConnectionProfileConfig: "fabric/org2-ca-connection-profile"
+    mispID: "Org2MSP"
+    mispSecret: "org2-peer1-secret"
+    peers:
+      - name: "org2-peer1"
+        endpoint: "org2-peer1.fabric.ekoh-internal:443"
+        enrollID: "peer1"
+        enrollSecret: "peer1pw"
+        peerSans:
+          - "org2-peer1"
+          - "org2-peer1.svc"
+        peerName: "org2-peer1"
+
+console:
+  name: hlf-console
+  version: 1.0.0
+  email: admin
+  password: password
+# channels:
+#   - name: "demo"
+#     ordererOrg:
+#       - name: "org0"
+#         adminCreds:
+#           username: org0admin
+#           password: org0adminpw
+#     peerOrgs:
+#       - name: org1
+#         adminCreds:
+#           username: org1admin
+#           password: org1adminpw
+#       - name: org2
+#         adminCreds:
+#           username: org2admin
+#           password: org2adminpw
