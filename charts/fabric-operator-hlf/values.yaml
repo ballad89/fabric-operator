@@ -133,7 +133,7 @@ orgs:
     mispID: "Org1MSP"
     orderers:
       - name: org0-orderers
-        clusterSize: 1
+        clusterSize: 3
         systemChannelName: "testchainid"
 
   - name: "org1"
@@ -169,19 +169,23 @@ console:
   version: 1.0.0
   email: admin
   password: password
-# channels:
-#   - name: "demo"
-#     ordererOrg:
-#       - name: "org0"
-#         adminCreds:
-#           username: org0admin
-#           password: org0adminpw
-#     peerOrgs:
-#       - name: org1
-#         adminCreds:
-#           username: org1admin
-#           password: org1adminpw
-#       - name: org2
-#         adminCreds:
-#           username: org2admin
-#           password: org2adminpw
+
+channels:
+  - name: "demo"
+
+    orderer:
+      name: org0-orderers
+      org:
+        name: "org0"
+        adminCreds:
+          username: org0admin
+          password: org0adminpw
+    peerOrgs:
+      - name: org1
+        adminCreds:
+          username: org1admin
+          password: org1adminpw
+      - name: org2
+        adminCreds:
+          username: org2admin
+          password: org2adminpw

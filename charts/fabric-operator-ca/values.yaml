@@ -1,6 +1,5 @@
 global:
   domain: "fabric.ekoh-internal"
-  tmpPath: "/tmp"
   ingress:
     enabled: true
     class: "nginx-fabric-internal"
@@ -38,11 +37,8 @@ global:
 
 orgs:
   - name: "org0"
-    mispID: "Org1MSP"
     ca:
       name: "org0-ca"
-      host: "fabric-org0-ca.fabric.ekoh-internal"
-      port: "443"
       identities:
         - name: rcaadmin
           pass: rcaadminpw
@@ -74,17 +70,10 @@ orgs:
         org2:
           - department1
       replicas: 1
-    orderers:
-      name: org0-orderers
-      clusterSize: 3
-      systemChannelName: "testchainid"
 
   - name: "org1"
-    mispID: "Org1MSP"
     ca:
       name: "org1-ca"
-      host: "fabric-org1-ca.fabric.ekoh-internal"
-      port: "443"
       identities:
         - name: rcaadmin
           pass: rcaadminpw
@@ -115,12 +104,8 @@ orgs:
       replicas: 1
 
   - name: "org2"
-    connectionProfileConfig: "fabric/org2-connection-profile"
-    mispID: "Org1MSP"
     ca:
       name: "org2-ca"
-      host: "fabric-org2-ca.fabric.ekoh-internal"
-      port: "443"
       identities:
         - name: rcaadmin
           pass: rcaadminpw
