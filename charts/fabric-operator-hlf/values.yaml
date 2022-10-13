@@ -148,7 +148,6 @@ orgs:
         peerSans:
           - "org1-peer1"
           - "org1-peer1.svc"
-        peerName: "org1-peer1"
 
   - name: "org2"
     caConnectionProfileConfig: "fabric/org2-ca-connection-profile"
@@ -162,30 +161,26 @@ orgs:
         peerSans:
           - "org2-peer1"
           - "org2-peer1.svc"
-        peerName: "org2-peer1"
 
 console:
   name: hlf-console
   version: 1.0.0
   email: admin
   password: password
-
-channels:
-  - name: "demo"
-
-    orderer:
-      name: org0-orderers
-      org:
-        name: "org0"
-        adminCreds:
-          username: org0admin
-          password: org0adminpw
-    peerOrgs:
-      - name: org1
-        adminCreds:
-          username: org1admin
-          password: org1adminpw
-      - name: org2
-        adminCreds:
-          username: org2admin
-          password: org2adminpw
+# channels:
+#   - name: "demo"
+#     ordererOrgs:
+#       - name: "org0"
+#         ordererName: org0-orderers
+#         adminCreds:
+#           username: org0admin
+#           password: org0adminpw
+#     peerOrgs:
+#       - name: org1
+#         adminCreds:
+#           username: org1admin
+#           password: org1adminpw
+#       - name: org2
+#         adminCreds:
+#           username: org2admin
+#           password: org2adminpw

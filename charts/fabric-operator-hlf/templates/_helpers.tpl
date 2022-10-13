@@ -101,3 +101,27 @@ Create the name of the service account to use
       {{ "" }}
     {{- end }}
 {{- end }}
+
+{{- define "fabric-operator-hlf.getOrg" -}}
+  {{- $org := dict }}
+  {{- $orgName := .orgName }}
+  {{- range $o := .Values.orgs }}
+    {{- if eq $o.name $orgName }}
+      {{- $org = $o }}
+    {{- end }}
+  {{- end}}
+  {{- $org | toYaml }}
+{{- end }}
+
+{{- define "fabric-operator-hlf.getOrderer" -}}
+  {{- $orderer := dict }}
+  {{- $orderers := .orderers -}}
+  {{- $ordererName := .ordererName }}
+  {{- range $o := $orderers }}
+    {{ $o = $o | toYaml | fromYaml }}
+    {{- if eq (toString $o.ordererName) $ordererName }}
+      {{- $orderer = $o }}
+    {{- end }}
+  {{- end}}
+  {{- $orderer | toYaml }}
+{{- end }}

@@ -57,7 +57,7 @@ items:
                 - {{ . }}
               {{- end }}
       chaincodeBuilderConfig:
-        peername: {{ .peerName }}
+        peername: {{ .name }}
       service:
         type: {{ (.service).type | default $.Values.global.peer.service.type }}
       stateDb: leveldb

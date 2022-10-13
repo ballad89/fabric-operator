@@ -1,7 +1,7 @@
 {{/*
 MSP config
 */}}
-{{- define "fabric-operator-hlf.msp-core" -}}
+{{- define "fabric-operator-hlf.peer-core" -}}
 #
 # Copyright contributors to the Hyperledger Fabric Operator project
 #
@@ -356,7 +356,7 @@ peer:
     # to match the name of one of the MSPs in each of the channel
     # that this peer is a member of. Otherwise this peer's messages
     # will not be identified as valid by other nodes.
-    localMspId: Org1MSP
+    localMspId: {{ .mispID }}
 
     # CLI common client config options
     client:
