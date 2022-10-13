@@ -167,20 +167,21 @@ console:
   version: 1.0.0
   email: admin
   password: password
-# channels:
-#   - name: "demo"
-#     ordererOrgs:
-#       - name: "org0"
-#         ordererName: org0-orderers
-#         adminCreds:
-#           username: org0admin
-#           password: org0adminpw
-#     peerOrgs:
-#       - name: org1
-#         adminCreds:
-#           username: org1admin
-#           password: org1adminpw
-#       - name: org2
-#         adminCreds:
-#           username: org2admin
-#           password: org2adminpw
+
+channels:
+  - name: "demo"
+    ordererOrgs:
+      - name: "org0"
+        ordererName: org0-orderers
+        adminCreds:
+          username: org0admin
+          password: org0adminpw
+    peerOrgs:
+      - name: org1
+        adminCreds:
+          username: org1admin
+          password: org1adminpw
+      - name: org2
+        adminCreds:
+          username: org2admin
+          password: org2adminpw

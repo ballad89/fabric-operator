@@ -17,15 +17,16 @@ spec:
       restartPolicy: "Never"
       volumes:
       {{- range $org := $channel.peerOrgs }}
+      {{- $peerOrg := (include "fabric-operator-hlf.getOrg" (dict "Values" $.Values "orgName" $org.name )) | fromYaml }}
         - name: {{ $org.name}}-peer-connection-profile
           configMap:
-            name: {{ $org.connectionProfileConfig }}
+            name: {{ ($peerOrg.caConnectionProfileConfig | split "/")._1 }}
       {{- end }}
       {{- range $org := $channel.ordererOrgs }}
       {{- $ordererOrg := (include "fabric-operator-hlf.getOrg" (dict "Values" $.Values "orgName" $org.name )) | fromYaml }}
         - name: {{ $ordererOrg.name}}-orderer-connection-profile
           configMap:
-            name: {{ $ordererOrg.connectionProfileConfig }}
+            name: {{ ($ordererOrg.caConnectionProfileConfig | split "/")._1 }}
       {{- $orderer := (include "fabric-operator-hlf.getOrderer" (dict "orderers" $ordererOrg.orderers "ordererName" $org.ordererName )) | fromYaml  }}
       {{- range $num := until (int $orderer.clusterSize) }}
         - name: {{ $ordererOrg.name }}-orderersnode{{ $num }}-connection-profile
@@ -298,6 +299,7 @@ spec:
             - name:  {{ $ordererOrg.name }}-orderersnode{{ $num }}
               mountPath: {{ $.Values.global.tmpPath }}/channel-msp/ordererOrganizations/{{ $ordererOrg.name}}/orderers/{{ $ordererOrg.name }}-orderersnode{{ $num }}/connection-profile.json
             {{- end }}
+            {{- $orderer }}
             {{- end }}
 ---
 {{- end }}
