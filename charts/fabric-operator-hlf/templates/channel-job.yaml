@@ -165,7 +165,7 @@ spec:
                   {{- $ordererOrg := (include "fabric-operator-hlf.getOrg" (dict "Values" $.Values "orgName" $org.name )) | fromYaml }}
                   {{- $orderer := (include "fabric-operator-hlf.getOrderer" (dict "orderers" $ordererOrg.orderers "ordererName" $org.ordererName )) | fromYaml  }}
                   {{- range $num := until (int $orderer.clusterSize) }}
-                  {{- $num := add1 $num }}
+                  {{- $num1 := add1 $num }}
                   extract_orderer_tls_cert {{ $ordererOrg.name }} orderersnode{{ $num1 }}
                   {{- end }}
                   {{- end }}

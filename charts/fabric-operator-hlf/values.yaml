@@ -167,7 +167,6 @@ console:
   version: 1.0.0
   email: admin
   password: password
-
 channels:
   - name: "demo"
     ordererOrgs:
