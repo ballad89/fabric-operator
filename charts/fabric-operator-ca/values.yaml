@@ -51,14 +51,14 @@ orgs:
             hf.GenCRL: true
             hf.Registrar.Attributes: "*"
             hf.AffiliationMgr: true
-        - name: orderer0
-          pass: orderer0pw
-          type: orderer
         - name: orderer1
           pass: orderer1pw
           type: orderer
         - name: orderer2
           pass: orderer2pw
+          type: orderer
+        - name: orderer3
+          pass: orderer3pw
           type: orderer
         - name: org0admin
           pass: org0adminpw

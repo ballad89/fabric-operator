@@ -118,8 +118,7 @@ Create the name of the service account to use
   {{- $orderers := .orderers -}}
   {{- $ordererName := .ordererName }}
   {{- range $o := $orderers }}
-    {{ $o = $o | toYaml | fromYaml }}
-    {{- if eq (toString $o.ordererName) $ordererName }}
+    {{- if eq (toString $o.name) $ordererName }}
       {{- $orderer = $o }}
     {{- end }}
   {{- end}}

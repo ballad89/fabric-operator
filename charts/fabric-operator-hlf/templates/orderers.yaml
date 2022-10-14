@@ -31,6 +31,7 @@ items:
       {{- $current := .}}
       clustersecret:
         {{- range $num := until (int .clusterSize) }}
+        {{- $num1 := add1 $num }}
            - enrollment:
               component:
                 caname: ca
@@ -38,20 +39,20 @@ items:
                 caport: {{ include "fabric-operator-hlf.caPort" $org | quote }}
                 catls:
                   cacert: {{ include "fabric-operator-hlf.caCert" $org }}
-                enrollid: "orderer{{ $num }}"
-                enrollsecret: "orderer{{ $num }}pw"
+                enrollid: "orderer{{ $num1 }}"
+                enrollsecret: "orderer{{ $num1 }}pw"
               tls:
                 caname: tlsca
                 cahost: {{ include "fabric-operator-hlf.caHost" $org }}
                 caport: {{ include "fabric-operator-hlf.caPort" $org | quote }}
                 catls:
                   cacert: {{ include "fabric-operator-hlf.caCert" $org }}
-                enrollid: "orderer{{ $num }}"
-                enrollsecret: "orderer{{ $num }}pw"
+                enrollid: "orderer{{ $num1 }}"
+                enrollsecret: "orderer{{ $num1 }}pw"
                 csr:
                   hosts:
-                    - "{{ $current.name }}node{{ $num }}"
-                    - "{{ $current.name }}node{{ $num }}.{{ $org.domain | default $.Values.global.domain }}"
+                    - "{{ $current.name }}node{{ $num1 }}"
+                    - "{{ $current.name }}node{{ $num1 }}.{{ $org.domain | default $.Values.global.domain }}"
         {{- end }}
       customNames:
         pvc: {}

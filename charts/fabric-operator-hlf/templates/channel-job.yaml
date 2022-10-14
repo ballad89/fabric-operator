@@ -29,9 +29,10 @@ spec:
             name: {{ ($ordererOrg.caConnectionProfileConfig | split "/")._1 }}
       {{- $orderer := (include "fabric-operator-hlf.getOrderer" (dict "orderers" $ordererOrg.orderers "ordererName" $org.ordererName )) | fromYaml  }}
       {{- range $num := until (int $orderer.clusterSize) }}
-        - name: {{ $ordererOrg.name }}-orderersnode{{ $num }}-connection-profile
+      {{- $num1 := add1 $num }}
+        - name: {{ $ordererOrg.name }}-orderersnode{{ $num1 }}
           configMap:
-            name: {{ $ordererOrg.name }}-orderersnode{{ $num }}
+            name: {{ $ordererOrg.name }}-orderersnode{{ $num1 }}-connection-profile
       {{- end }}
       {{- end }}
       containers:
@@ -164,7 +165,8 @@ spec:
                   {{- $ordererOrg := (include "fabric-operator-hlf.getOrg" (dict "Values" $.Values "orgName" $org.name )) | fromYaml }}
                   {{- $orderer := (include "fabric-operator-hlf.getOrderer" (dict "orderers" $ordererOrg.orderers "ordererName" $org.ordererName )) | fromYaml  }}
                   {{- range $num := until (int $orderer.clusterSize) }}
-                  extract_orderer_tls_cert {{ $ordererOrg.name }} orderersnode{{ $num }}
+                  {{- $num := add1 $num }}
+                  extract_orderer_tls_cert {{ $ordererOrg.name }} orderersnode{{ $num1 }}
                   {{- end }}
                   {{- end }}
               }
@@ -236,8 +238,9 @@ spec:
                 {{- $ordererOrg := (include "fabric-operator-hlf.getOrg" (dict "Values" $.Values "orgName" $org.name )) | fromYaml }}
                 {{- $orderer := (include "fabric-operator-hlf.getOrderer" (dict "orderers" $ordererOrg.orderers "ordererName" $org.ordererName )) | fromYaml  }}
                 {{- range $num := until (int $orderer.clusterSize) }}
-                extract_orderer_tls_cert {{ $ordererOrg.name }} orderersnode{{ $num }}
-                join_channel_orderer {{ $org.name }} orderersnode{{ $num }}
+                {{- $num1 := add1 $num }}
+                extract_orderer_tls_cert {{ $ordererOrg.name }} orderersnode{{ $num1 }}
+                join_channel_orderer {{ $org.name }} orderersnode{{ $num1 }}
                 {{- end }}
                 {{- end }}
 
@@ -296,10 +299,10 @@ spec:
               mountPath: {{ $.Values.global.tmpPath }}/cas/{{ $ordererOrg.name}}-orderer-ca/connection-profile.json
             {{- $orderer := (include "fabric-operator-hlf.getOrderer" (dict "orderers" $ordererOrg.orderers "ordererName" $org.ordererName )) | fromYaml  }}
             {{- range $num := until (int $orderer.clusterSize) }}
-            - name:  {{ $ordererOrg.name }}-orderersnode{{ $num }}
-              mountPath: {{ $.Values.global.tmpPath }}/channel-msp/ordererOrganizations/{{ $ordererOrg.name}}/orderers/{{ $ordererOrg.name }}-orderersnode{{ $num }}/connection-profile.json
+            {{- $num1 := add1 $num }}
+            - name:  {{ $ordererOrg.name }}-orderersnode{{ $num1 }}
+              mountPath: {{ $.Values.global.tmpPath }}/channel-msp/ordererOrganizations/{{ $ordererOrg.name}}/orderers/{{ $ordererOrg.name }}-orderersnode{{ $num1 }}/connection-profile.json
             {{- end }}
-            {{- $orderer }}
             {{- end }}
 ---
 {{- end }}
