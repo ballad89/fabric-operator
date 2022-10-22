@@ -31,6 +31,9 @@ items:
         peerTag: {{ (.peer).image.tag | default $.Values.global.peer.image.tag }}
         grpcwebImage: {{ (.grpc).image.repo | default $.Values.global.grpc.image.repo }}
         grpcwebTag: {{ (.grpc).image.tag | default $.Values.global.grpc.image.tag }}
+      ingress:
+        class: {{ (.ingress).class | default $.Values.global.ingress.class }}
+        tlsSecretName: {{ (.ingress).tlsSecretName | default $.Values.global.ingress.tlsSecretName }}
       mspID: {{ $org.mispID }}
       mspSecret: {{ $org.mispSecret }}
       secret:

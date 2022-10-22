@@ -7,6 +7,8 @@ metadata:
   name: {{ printf "%s-%s" $.Release.Name $channel.name }}
   labels:
     {{- include "fabric-operator-hlf.labels" $ | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install
 spec:
   backoffLimit: 0
   template:
@@ -16,6 +18,9 @@ spec:
     spec:
       restartPolicy: "Never"
       volumes:
+        - name: {{ $channel.name }}-config
+          configMap:
+            name: {{ printf "%s-%s" $.Release.Name $channel.name }}
       {{- range $org := $channel.peerOrgs }}
       {{- $peerOrg := (include "fabric-operator-hlf.getOrg" (dict "Values" $.Values "orgName" $org.name )) | fromYaml }}
         - name: {{ $org.name}}-peer-connection-profile
@@ -86,7 +91,7 @@ spec:
                 fi
 
                 # Retrieve the CA information from Kubernetes
-                CA_NAME=${org}-${type}-ca
+                CA_NAME=${org}-ca
                 CA_DIR=${TEMP_DIR}/cas/${CA_NAME}
                 CONNECTION_PROFILE=${CA_DIR}/connection-profile.json
 
@@ -103,7 +108,7 @@ spec:
                 FABRIC_CA_CLIENT_HOME=${ORG_ADMIN_DIR} fabric-ca-client enroll --url ${CA_URL} --tls.certfiles ${CA_DIR}/tls-cert.pem
 
                 # Construct an msp config.yaml
-                CA_CERT_NAME=${CA_NAME}-ca-$(echo {{ $.Values.global.domain }} | tr -s . -)-${CA_PORT}.pem
+                CA_CERT_NAME={{ $.Release.Namespace }}-${CA_NAME}-ca-$(echo {{ $.Values.global.domain }} | tr -s . -)-${CA_PORT}.pem
 
                 create_msp_config_yaml ${CA_NAME} ${CA_CERT_NAME} ${ORG_ADMIN_DIR}/msp
 
@@ -176,7 +181,7 @@ spec:
                 local org=$2
                 echo "Creating channel org $org MSP"
 
-                CA_DIR=${TEMP_DIR}/cas/${org}-${type}-ca
+                CA_DIR=${TEMP_DIR}/cas/${org}-ca
                 ORG_MSP_DIR=${TEMP_DIR}/channel-msp/${type}Organizations/${org}/msp
 
                 mkdir -p ${ORG_MSP_DIR}/cacerts
@@ -185,7 +190,7 @@ spec:
                 jq -r .ca.signcerts ${CA_DIR}/connection-profile.json | base64 -d >& ${ORG_MSP_DIR}/cacerts/ca-signcert.pem
                 jq -r .tlsca.signcerts ${CA_DIR}/connection-profile.json | base64 -d >& ${ORG_MSP_DIR}/tlscacerts/tlsca-signcert.pem
 
-                create_msp_config_yaml ${org}-${type}-ca ca-signcert.pem ${ORG_MSP_DIR}
+                create_msp_config_yaml ${org}-ca ca-signcert.pem ${ORG_MSP_DIR}
               }
 
               function extract_orderer_tls_cert() {
@@ -208,22 +213,8 @@ spec:
 
 
               function create_genesis_block() {
-              {{- range $org := $channel.peerOrgs }}
-              mkdir -p ${TEMP_DIR}/{{ $org.name }}/config
-
-              {{- $peerOrg := (include "fabric-operator-hlf.getOrg" (dict "Values" $.Values "orgName" $org.name )) | fromYaml }}
-
-                cat << EOF > ${TEMP_DIR}/{{ $org.name }}/config/core.yaml
-              {{ include "fabric-operator-hlf.peer-core" $peerOrg | nindent 15 }}
-              EOF
-              {{- end }}
-
-
-                cat << EOF > ${TEMP_DIR}/config/configtx.yaml
-              {{- include "fabric-operator-hlf.channel-configtx" $ | nindent 15 }}
-              EOF
-
-                FABRIC_CFG_PATH=${TEMP_DIR}/{{ (first $channel.peerOrgs).name }}/config/ \
+                
+                FABRIC_CFG_PATH=${TEMP_DIR}/config/ \
                     configtxgen \
                     -profile      TwoOrgsApplicationGenesis \
                     -channelID    {{ $channel.name }} \
@@ -257,7 +248,7 @@ spec:
                 # of identity than the Docker Compose network, which transmits the orderer NODE TLS key pair directly
 
                 osnadmin channel join \
-                    --orderer-address ${org}-${orderer}-admin.{{ $.Values.global.domain }} \
+                    --orderer-address {{ $.Release.Namespace }}-${org}-${orderer}-admin.{{ $.Values.global.domain }} \
                     --ca-file         ${TEMP_DIR}/channel-msp/ordererOrganizations/${org}/orderers/${org}-${orderer}/tls/signcerts/tls-cert.pem \
                     --client-cert     ${TEMP_DIR}/enrollments/${org}/users/${org}admin/tls/signcerts/cert.pem \
                     --client-key      ${TEMP_DIR}/enrollments/${org}/users/${org}admin/tls/keystore/key.pem \
@@ -278,7 +269,6 @@ spec:
                 export CORE_PEER_MSPCONFIGPATH=${TEMP_DIR}/enrollments/{{ $org.name }}/users/{{ $org.adminCreds.username }}/msp
                 export CORE_PEER_TLS_ROOTCERT_FILE=${TEMP_DIR}/channel-msp/peerOrganizations/{{ $org.name }}/msp/tlscacerts/tlsca-signcert.pem
 
-
                 peer channel join \
                     --blockpath ${TEMP_DIR}/genesis_block.pb
                 {{- end }}
@@ -289,21 +279,29 @@ spec:
               
               sleep 3600
           volumeMounts:
+            - name: {{ $channel.name }}-config
+              mountPath: {{ $.Values.global.tmpPath }}/config/configtx.yaml
+              subPath: configtx.yaml
             {{- range $org := $channel.peerOrgs }}
             - name: {{ $org.name}}-peer-connection-profile
-              mountPath: {{ $.Values.global.tmpPath }}/cas/{{ $org.name}}-peer-ca/connection-profile.json
+              mountPath: {{ $.Values.global.tmpPath }}/cas/{{ $org.name}}-ca/connection-profile.json
+              subPath: profile.json
+            - name: {{ $channel.name }}-config
+              mountPath: {{ $.Values.global.tmpPath }}/{{ $org.name }}/config/core.yaml
+              subPath: {{ $org.name }}-core.yaml
             {{- end }}
             {{- range $org := $channel.ordererOrgs }}
             {{- $ordererOrg := (include "fabric-operator-hlf.getOrg" (dict "Values" $.Values "orgName" $org.name )) | fromYaml }}
             - name: {{ $ordererOrg.name}}-orderer-connection-profile
-              mountPath: {{ $.Values.global.tmpPath }}/cas/{{ $ordererOrg.name}}-orderer-ca/connection-profile.json
+              mountPath: {{ $.Values.global.tmpPath }}/cas/{{ $ordererOrg.name}}-ca/connection-profile.json
+              subPath: profile.json
             {{- $orderer := (include "fabric-operator-hlf.getOrderer" (dict "orderers" $ordererOrg.orderers "ordererName" $org.ordererName )) | fromYaml  }}
             {{- range $num := until (int $orderer.clusterSize) }}
             {{- $num1 := add1 $num }}
             - name:  {{ $ordererOrg.name }}-orderersnode{{ $num1 }}
               mountPath: {{ $.Values.global.tmpPath }}/channel-msp/ordererOrganizations/{{ $ordererOrg.name}}/orderers/{{ $ordererOrg.name }}-orderersnode{{ $num1 }}/connection-profile.json
+              subPath: profile.json
             {{- end }}
             {{- end }}
----
 {{- end }}
 {{- end }}

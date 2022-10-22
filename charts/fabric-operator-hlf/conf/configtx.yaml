@@ -1,7 +1,6 @@
 {{/*
 Channel config template
 */}}
-{{- define "fabric-operator-hlf.channel-configtx" -}}
 #
 # Copyright contributors to the Hyperledger Fabric Operator project
 #
@@ -29,20 +28,26 @@ Channel config template
 #   be referenced later in the configuration.
 #
 ################################################################################
-Organizations:
 
+
+{{- $root := .root }}
+{{- $channel := .channel }}
+Organizations:
+  {{- range $org := $channel.ordererOrgs }}
+  {{- $ordererOrg := (include "fabric-operator-hlf.getOrg" (dict "Values" $root.Values "orgName" $org.name )) | fromYaml }}
+  {{- $orderer := (include "fabric-operator-hlf.getOrderer" (dict "orderers" $ordererOrg.orderers "ordererName" $org.ordererName )) | fromYaml  }}
   # SampleOrg defines an MSP using the sampleconfig.  It should never be used
   # in production but may be used as a template for other definitions
-  - &OrdererOrg
+  - &Orderer{{ $org.name }}
     # DefaultOrg defines the organization which is used in the sampleconfig
     # of the fabric.git development environment
-    Name: OrdererOrg
+    Name: {{ $ordererOrg.mispID }}
 
     # ID to load the MSP definition as
-    ID: OrdererMSP
+    ID: {{ $ordererOrg.mispID }}
 
     # MSPDir is the filesystem path which contains the MSP configuration
-    MSPDir: ../../temp/channel-msp/ordererOrganizations/org0/msp
+    MSPDir: {{ $root.Values.global.tmpPath }}/channel-msp/ordererOrganizations/{{ $org.name }}/msp
 
     # Policies defines the set of policies at this level of the config tree
     # For organization policies, their canonical path is usually
@@ -50,28 +55,33 @@ Organizations:
     Policies:
       Readers:
         Type: Signature
-        Rule: "OR('OrdererMSP.member')"
+        Rule: "OR('{{ $ordererOrg.mispID }}.member')"
       Writers:
         Type: Signature
-        Rule: "OR('OrdererMSP.member')"
+        Rule: "OR('{{ $ordererOrg.mispID }}.member')"
       Admins:
         Type: Signature
-        Rule: "OR('OrdererMSP.admin')"
-
+        Rule: "OR('{{ $ordererOrg.mispID }}.admin')"
+        
     OrdererEndpoints:
-      - org0-orderersnode1.${KUBE_DNS_DOMAIN}:7050
-      - org0-orderersnode2.${KUBE_DNS_DOMAIN}:7050
-      - org0-orderersnode3.${KUBE_DNS_DOMAIN}:7050
+    {{- range $num := until (int $orderer.clusterSize) }}
+    {{- $num1 := add1 $num }}
+      - {{ $orderer.name }}node{{ $num1 }}.{{ $root.Release.Namespace }}.svc.cluster.local:7050
+    {{- end }}
+    {{- end }}
 
-  - &Org1
+  
+  {{- range $org := $channel.peerOrgs }}
+  {{- $peerOrg := (include "fabric-operator-hlf.getOrg" (dict "Values" $root.Values "orgName" $org.name )) | fromYaml }}
+  - &Peer{{ $org.name }}
     # DefaultOrg defines the organization which is used in the sampleconfig
     # of the fabric.git development environment
-    Name: Org1MSP
+    Name: {{ $peerOrg.mispID }}
 
     # ID to load the MSP definition as
-    ID: Org1MSP
+    ID: {{ $peerOrg.mispID }}
 
-    MSPDir: ../../temp/channel-msp/peerOrganizations/org1/msp
+    MSPDir: {{ $root.Values.global.tmpPath }}/channel-msp/peerOrganizations/{{ $org.name }}/msp
 
     # Policies defines the set of policies at this level of the config tree
     # For organization policies, their canonical path is usually
@@ -79,58 +89,25 @@ Organizations:
     Policies:
       Readers:
         Type: Signature
-        Rule: "OR('Org1MSP.admin', 'Org1MSP.peer', 'Org1MSP.client')"
+        Rule: "OR('{{ $peerOrg.mispID }}.admin', '{{ $peerOrg.mispID }}.peer', '{{ $peerOrg.mispID }}.client')"
       Writers:
         Type: Signature
-        Rule: "OR('Org1MSP.admin', 'Org1MSP.client')"
+        Rule: "OR('{{ $peerOrg.mispID }}.admin', '{{ $peerOrg.mispID }}.client')"
       Admins:
         Type: Signature
-        Rule: "OR('Org1MSP.admin')"
+        Rule: "OR('{{ $peerOrg.mispID }}.admin')"
       Endorsement:
         Type: Signature
-        Rule: "OR('Org1MSP.peer')"
+        Rule: "OR('{{ $peerOrg.mispID }}.peer')"
 
     # leave this flag set to true.
     AnchorPeers:
       # AnchorPeers defines the location of peers which can be used
       # for cross org gossip communication.  Note, this value is only
       # encoded in the genesis block in the Application section context
-      - Host: org1-peer1.${KUBE_DNS_DOMAIN}
+      - Host: {{ (index $peerOrg.peers 0).name }}.{{ $root.Release.Namespace }}.svc.cluster.local
         Port: 7051
-
-  - &Org2
-    # DefaultOrg defines the organization which is used in the sampleconfig
-    # of the fabric.git development environment
-    Name: Org2MSP
-
-    # ID to load the MSP definition as
-    ID: Org2MSP
-
-    MSPDir: ../../temp/channel-msp/peerOrganizations/org2/msp
-
-    # Policies defines the set of policies at this level of the config tree
-    # For organization policies, their canonical path is usually
-    #   /Channel/<Application|Orderer>/<OrgName>/<PolicyName>
-    Policies:
-      Readers:
-        Type: Signature
-        Rule: "OR('Org2MSP.admin', 'Org2MSP.peer', 'Org2MSP.client')"
-      Writers:
-        Type: Signature
-        Rule: "OR('Org2MSP.admin', 'Org2MSP.client')"
-      Admins:
-        Type: Signature
-        Rule: "OR('Org2MSP.admin')"
-      Endorsement:
-        Type: Signature
-        Rule: "OR('Org2MSP.peer')"
-
-    AnchorPeers:
-      # AnchorPeers defines the location of peers which can be used
-      # for cross org gossip communication.  Note, this value is only
-      # encoded in the genesis block in the Application section context
-      - Host: org2-peer1.${KUBE_DNS_DOMAIN}
-        Port: 7051
+  {{- end }}
 
 ################################################################################
 #
@@ -217,10 +194,20 @@ Application: &ApplicationDefaults
       Rule: "MAJORITY Admins"
     LifecycleEndorsement:
       Type: Signature
-      Rule: "OR('Org1MSP.peer','Org2MSP.peer')"
+      {{- $orgMisp := list }}
+      {{- range $org := $channel.peerOrgs }}
+      {{- $peerOrg := (include "fabric-operator-hlf.getOrg" (dict "Values" $root.Values "orgName" $org.name )) | fromYaml }}
+      {{- $orgMisp = printf "%s.peer" $peerOrg.mispID | squote | append $orgMisp }}
+      {{- end }}
+      Rule: "OR({{ join "," $orgMisp }})"
     Endorsement:
       Type: Signature
-      Rule: "OR('Org1MSP.peer','Org2MSP.peer')"
+      {{- $orgMisp := list }}
+      {{- range $org := $channel.peerOrgs }}
+      {{- $peerOrg := (include "fabric-operator-hlf.getOrg" (dict "Values" $root.Values "orgName" $org.name )) | fromYaml }}
+      {{- $orgMisp = printf "%s.peer" $peerOrg.mispID | squote | append $orgMisp }}
+      {{- end }}
+      Rule: "OR({{ join "," $orgMisp }})"
 
   Capabilities:
     <<: *ApplicationCapabilities
@@ -239,20 +226,17 @@ Orderer: &OrdererDefaults
 
   EtcdRaft:
     Consenters:
-      - Host: org0-orderersnode1.${KUBE_DNS_DOMAIN}
+    {{- range $org := $channel.ordererOrgs }}
+    {{- $ordererOrg := (include "fabric-operator-hlf.getOrg" (dict "Values" $root.Values "orgName" $org.name )) | fromYaml }}
+    {{- $orderer := (include "fabric-operator-hlf.getOrderer" (dict "orderers" $ordererOrg.orderers "ordererName" $org.ordererName )) | fromYaml  }}
+    {{- range $num := until (int $orderer.clusterSize) }}
+    {{- $num1 := add1 $num }}
+      - Host: {{ $orderer.name }}node{{ $num1 }}.{{ $root.Release.Namespace }}.svc.cluster.local
         Port: 7050
-        ClientTLSCert: ../../temp/channel-msp/ordererOrganizations/org0/orderers/org0-orderersnode1/tls/signcerts/tls-cert.pem
-        ServerTLSCert: ../../temp/channel-msp/ordererOrganizations/org0/orderers/org0-orderersnode1/tls/signcerts/tls-cert.pem
-      - Host: org0-orderersnode2.${KUBE_DNS_DOMAIN}
-        Port: 7050
-        ClientTLSCert: ../../temp/channel-msp/ordererOrganizations/org0/orderers/org0-orderersnode2/tls/signcerts/tls-cert.pem
-        ServerTLSCert: ../../temp/channel-msp/ordererOrganizations/org0/orderers/org0-orderersnode2/tls/signcerts/tls-cert.pem
-      - Host: org0-orderersnode3.${KUBE_DNS_DOMAIN}
-        Port: 7050
-        ClientTLSCert: ../../temp/channel-msp/ordererOrganizations/org0/orderers/org0-orderersnode3/tls/signcerts/tls-cert.pem
-        ServerTLSCert: ../../temp/channel-msp/ordererOrganizations/org0/orderers/org0-orderersnode3/tls/signcerts/tls-cert.pem
-
-
+        ClientTLSCert: {{ $root.Values.global.tmpPath }}/channel-msp/ordererOrganizations/{{ $org.name }}/orderers/{{ $orderer.name }}node{{ $num1 }}/tls/signcerts/tls-cert.pem
+        ServerTLSCert: {{ $root.Values.global.tmpPath }}/channel-msp/ordererOrganizations/{{ $org.name }}/orderers/{{ $orderer.name }}node{{ $num1 }}/tls/signcerts/tls-cert.pem
+    {{- end }}
+    {{- end }}
     # Options to be specified for all the etcd/raft nodes. The values here
     # are the defaults for all new channels and can be modified on a
     # per-channel basis via configuration updates.
@@ -370,64 +354,15 @@ Profiles:
     Orderer:
       <<: *OrdererDefaults
       Organizations:
-        - *OrdererOrg
+      {{- range $org := $channel.ordererOrgs }}
+        - *Orderer{{ $org.name }}
+      {{- end }}
       Capabilities: *OrdererCapabilities
     Application:
       <<: *ApplicationDefaults
       Organizations:
-        - *Org1
-        - *Org2
+      {{- range $org := $channel.peerOrgs }}
+        - *Peer{{ $org.name }}
+      {{- end }}
       Capabilities: *ApplicationCapabilities
 
-
-  #
-  # Unclear lineage for these profiles:  nano-fab?
-  #
-  # TwoOrgsOrdererGenesis will construct a system channel as it has a Consortiums stanza, which is not
-  # compatible with osnadmin.
-  #
-  # @enyeart - which profile should be used for the kube test network?
-  #
-  TwoOrgsOrdererGenesis:
-    <<: *ChannelDefaults
-    Orderer:
-      <<: *OrdererDefaults
-      OrdererType: etcdraft
-      Organizations:
-        - *OrdererOrg
-      Capabilities:
-        <<: *OrdererCapabilities
-    Consortiums:
-      SampleConsortium:
-        Organizations:
-          - *Org1
-          - *Org2
-  TwoOrgsChannel:
-    Consortium: SampleConsortium
-    <<: *ChannelDefaults
-    Application:
-      <<: *ApplicationDefaults
-      Organizations:
-        - *Org1
-        - *Org2
-      Capabilities:
-        <<: *ApplicationCapabilities
-  Org1Channel:
-    Consortium: SampleConsortium
-    <<: *ChannelDefaults
-    Application:
-      <<: *ApplicationDefaults
-      Organizations:
-        - *Org1
-      Capabilities:
-        <<: *ApplicationCapabilities
-  Org2Channel:
-    Consortium: SampleConsortium
-    <<: *ChannelDefaults
-    Application:
-      <<: *ApplicationDefaults
-      Organizations:
-        - *Org2
-      Capabilities:
-        <<: *ApplicationCapabilities
-{{- end }}

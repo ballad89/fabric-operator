@@ -52,7 +52,9 @@ items:
                 csr:
                   hosts:
                     - "{{ $current.name }}node{{ $num1 }}"
+                    - "{{ $current.name }}node{{ $num1 }}.{{ $.Release.Namespace }}.svc.cluster.local"
                     - "{{ $current.name }}node{{ $num1 }}.{{ $org.domain | default $.Values.global.domain }}"
+                    
         {{- end }}
       customNames:
         pvc: {}

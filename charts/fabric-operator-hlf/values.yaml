@@ -130,7 +130,7 @@ global:
 orgs:
   - name: "org0"
     caConnectionProfileConfig: "fabric/org0-ca-connection-profile"
-    mispID: "Org1MSP"
+    mispID: "Org0MSP"
     orderers:
       - name: org0-orderers
         clusterSize: 3
@@ -142,12 +142,12 @@ orgs:
     mispSecret: "org1-peer1-secret"
     peers:
       - name: "org1-peer1"
-        endpoint: "org1-peer1.fabric.ekoh-internal:443"
+        endpoint: "fabric-org1-peer1-peer.fabric.ekoh-internal:443"
         enrollID: "peer1"
         enrollSecret: "peer1pw"
         peerSans:
           - "org1-peer1"
-          - "org1-peer1.svc"
+          - "org1-peer1.fabric.svc.cluster.local"
 
   - name: "org2"
     caConnectionProfileConfig: "fabric/org2-ca-connection-profile"
@@ -155,20 +155,21 @@ orgs:
     mispSecret: "org2-peer1-secret"
     peers:
       - name: "org2-peer1"
-        endpoint: "org2-peer1.fabric.ekoh-internal:443"
+        endpoint: "fabric-org2-peer1-peer.fabric.ekoh-internal:443"
         enrollID: "peer1"
         enrollSecret: "peer1pw"
         peerSans:
           - "org2-peer1"
-          - "org2-peer1.svc"
+          - "org2-peer1.fabric.svc.cluster.local"
 
 console:
   name: hlf-console
   version: 1.0.0
   email: admin
   password: password
+
 channels:
-  - name: "demo"
+  - name: "demo6"
     ordererOrgs:
       - name: "org0"
         ordererName: org0-orderers
