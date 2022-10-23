@@ -49,8 +49,8 @@ global:
   peer:
     version: "2.4.4"
     image:
-      repo: "hyperledger/fabric-peer"
-      tag: "2.4.4"
+      repo: "ghcr.io/hyperledgendary/k8s-fabric-peer"
+      tag: "v0.6.0"
     service:
       type: ClusterIP
     resources:
@@ -169,7 +169,7 @@ console:
   password: password
 
 channels:
-  - name: "demo6"
+  - name: "demo1"
     ordererOrgs:
       - name: "org0"
         ordererName: org0-orderers
@@ -185,3 +185,8 @@ channels:
         adminCreds:
           username: org2admin
           password: org2adminpw
+    chaincodes:
+      - name: "ekoh-online-contract"
+        image: "560696278034.dkr.ecr.eu-west-1.amazonaws.com/ekoh-online/events-contract"
+        digest: "sha256:7418e047065baba65c791cf18a99dc34d299f7e8426f54ac79ac3a7862254118"
+        sequence: 1

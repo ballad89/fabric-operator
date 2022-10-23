@@ -10,7 +10,7 @@ metadata:
   annotations:
     "helm.sh/hook": post-install
 spec:
-  backoffLimit: 0
+  backoffLimit: 5
   template:
     metadata:
       labels:
@@ -41,7 +41,7 @@ spec:
       {{- end }}
       {{- end }}
       containers:
-        - name: create-user
+        - name: create-channel-and-chaincode
           image: {{ $.Values.global.tools.image.repo }}:{{ $.Values.global.tools.image.tag }}
           imagePullPolicy: "IfNotPresent"
           env:
@@ -49,7 +49,7 @@ spec:
               value: "{{ $.Values.global.tmpPath }}"
           command:
             - bash
-            - -c
+            - -exc
             - |
               function channel_up() {
                 set -x
@@ -62,6 +62,89 @@ spec:
                 join_channel_orderers
                 join_channel_peers
               }
+
+              function deploy_chaincodes() {
+                {{- range $chaincode := $channel.chaincodes }}
+                deploy_chaincode {{ $chaincode.name }} {{ $chaincode.image }} {{ $chaincode.digest }} {{ $chaincode.sequence }} 
+                {{- end }}
+              }
+
+              function deploy_chaincode() {
+                local cc_name=$1
+                local cc_image=$2
+                local cc_digest=$3
+                local cc_sequence=$4
+
+                local temp_folder=$(mktemp -d)
+                local cc_package=${cc_name}.tgz
+
+                cd ${temp_folder} 
+
+                cat << IMAGEJSON-EOF > image.json
+              {
+                  "name": "${cc_image}",
+                  "digest": "${cc_digest}"
+              }
+              IMAGEJSON-EOF
+
+                cat << METADATAJSON-EOF > metadata.json
+              {
+                    "type": "k8s",
+                    "label": "${cc_name}"
+              }
+              METADATAJSON-EOF
+
+                tar -czf code.tar.gz image.json
+
+                tar -czf ${cc_package} metadata.json code.tar.gz
+
+
+                {{- range $org := $channel.peerOrgs }}
+                {{- $peerOrg := (include "fabric-operator-hlf.getOrg" (dict "Values" $.Values "orgName" $org.name )) | fromYaml }}
+                {{- range $peer := $peerOrg.peers }}
+
+
+                export FABRIC_CFG_PATH=${TEMP_DIR}/{{ $org.name }}/config
+                export CORE_PEER_ADDRESS={{ $peer.endpoint }}
+                export CORE_PEER_LOCALMSPID={{ $peerOrg.mispID }}
+                export CORE_PEER_TLS_ENABLED=true
+                export CORE_PEER_MSPCONFIGPATH=${TEMP_DIR}/enrollments/{{ $org.name }}/users/{{ $org.adminCreds.username }}/msp
+                export CORE_PEER_TLS_ROOTCERT_FILE=${TEMP_DIR}/channel-msp/peerOrganizations/{{ $org.name }}/msp/tlscacerts/tlsca-signcert.pem
+
+                peer lifecycle chaincode install ${cc_package}
+                export PACKAGE_ID=$(peer lifecycle chaincode calculatepackageid ${cc_package})
+                {{- end }}
+
+                {{- $oOrg := (index $channel.ordererOrgs 0)  }}
+                {{- $ordererOrg := (include "fabric-operator-hlf.getOrg" (dict "Values" $.Values "orgName" $oOrg.name )) | fromYaml }}
+                {{- $orderer := (include "fabric-operator-hlf.getOrderer" (dict "orderers" $ordererOrg.orderers "ordererName" $oOrg.ordererName )) | fromYaml  }}
+                {{- $num := (index (until (int $orderer.clusterSize)) 0) }}
+                {{- $num1 := add1 $num }}
+
+                peer lifecycle \
+                  chaincode approveformyorg \
+                  --channelID     {{ $channel.name }} \
+                  --name          ${cc_name} \
+                  --version       ${cc_sequence} \
+                  --package-id    ${PACKAGE_ID} \
+                  --sequence      ${cc_sequence} \
+                  --orderer       {{ $.Release.Namespace }}-{{ $ordererOrg.name }}-orderersnode{{ $num1 }}-orderer.{{ $.Values.global.domain }}:443 \
+                  --tls --cafile  {{ $.Values.global.tmpPath }}/channel-msp/ordererOrganizations/{{ $ordererOrg.name }}/orderers/{{ $orderer.name }}node{{ $num1 }}/tls/signcerts/tls-cert.pem \
+                  --connTimeout   15s
+
+                peer lifecycle \
+                  chaincode commit \
+                  --channelID     {{ $channel.name }} \
+                  --name          ${cc_name} \
+                  --version       ${cc_sequence} \
+                  --sequence      ${cc_sequence} \
+                  --orderer       {{ $.Release.Namespace }}-{{ $ordererOrg.name }}-orderersnode{{ $num1 }}-orderer.{{ $.Values.global.domain }}:443 \
+                  --tls --cafile  {{ $.Values.global.tmpPath }}/channel-msp/ordererOrganizations/{{ $ordererOrg.name }}/orderers/{{ $orderer.name }}node{{ $num1 }}/tls/signcerts/tls-cert.pem \
+                  --connTimeout   15s
+
+                {{- end }}
+              }
+
 
               function enroll_org_admins() {
                   {{- range $org := $channel.peerOrgs }}
@@ -276,8 +359,7 @@ spec:
               }
 
               channel_up
-              
-              sleep 3600
+              deploy_chaincodes
           volumeMounts:
             - name: {{ $channel.name }}-config
               mountPath: {{ $.Values.global.tmpPath }}/config/configtx.yaml
