@@ -109,7 +109,7 @@ Create the name of the service account to use
     {{- if eq $o.name $orgName }}
       {{- $org = $o }}
     {{- end }}
-  {{- end}}
+  {{- end }}
   {{- $org | toYaml }}
 {{- end }}
 
@@ -123,4 +123,26 @@ Create the name of the service account to use
     {{- end }}
   {{- end}}
   {{- $orderer | toYaml }}
+{{- end }}
+
+{{- define "fabric-operator-hlf.getChannelPeerOrgs" -}}
+  {{ $newList := list }}
+  {{- $channelOrgs := .orgs }}
+  {{- range $o := $channelOrgs }}
+    {{- if ($o.peers).enabled }}
+      {{ $newList := append $newList $o }}
+    {{- end }}
+  {{- end}}
+  {{- $newList | toYaml }}
+{{- end }}
+
+{{- define "fabric-operator-hlf.getChannelOrdererOrgs" -}}
+  {{ $newList := list }}
+  {{- $channelOrgs := .orgs }}
+  {{- range $o := $channelOrgs }}
+    {{- if ($o.orderers).enabled }}
+      {{ $newList := append $newList $o }}
+    {{- end }}
+  {{- end}}
+  {{- $newList | toYaml }}
 {{- end }}

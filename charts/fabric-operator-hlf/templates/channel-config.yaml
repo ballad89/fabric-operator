@@ -8,9 +8,11 @@ metadata:
   labels:
     {{- include "fabric-operator-hlf.labels" $ | nindent 4 }}
 binaryData:
-  {{- range $org := $channel.peerOrgs }}
+  {{- range $org := $channel.orgs }}
+  {{- if $org.peers.enabled }}
   {{- $peerOrg := (include "fabric-operator-hlf.getOrg" (dict "Values" $.Values "orgName" $org.name )) | fromYaml }}
   {{ $org.name }}-core.yaml: {{ (tpl ($.Files.Get "conf/core.yaml") (dict "Values" $.Values "peerOrg" $peerOrg "Template" $.Template)) | b64enc }}
+  {{- end }}
   {{- end }}
   configtx.yaml: {{ (tpl ($.Files.Get "conf/configtx.yaml") (dict "root" $ "channel" $channel "Template" $.Template)) | b64enc }}
   {{- end }}

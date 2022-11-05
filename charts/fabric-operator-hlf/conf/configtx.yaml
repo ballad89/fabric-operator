@@ -33,9 +33,10 @@ Channel config template
 {{- $root := .root }}
 {{- $channel := .channel }}
 Organizations:
-  {{- range $org := $channel.ordererOrgs }}
+  {{- range $org := $channel.orgs }}
+  {{- if $org.orderers.enabled }}
   {{- $ordererOrg := (include "fabric-operator-hlf.getOrg" (dict "Values" $root.Values "orgName" $org.name )) | fromYaml }}
-  {{- $orderer := (include "fabric-operator-hlf.getOrderer" (dict "orderers" $ordererOrg.orderers "ordererName" $org.ordererName )) | fromYaml  }}
+  {{- $orderer := (include "fabric-operator-hlf.getOrderer" (dict "orderers" $ordererOrg.orderers "ordererName" $org.orderers.name )) | fromYaml  }}
   # SampleOrg defines an MSP using the sampleconfig.  It should never be used
   # in production but may be used as a template for other definitions
   - &Orderer{{ $org.name }}
@@ -69,9 +70,11 @@ Organizations:
       - {{ $orderer.name }}node{{ $num1 }}.{{ $root.Release.Namespace }}.svc.cluster.local:7050
     {{- end }}
     {{- end }}
+    {{- end }}
 
   
-  {{- range $org := $channel.peerOrgs }}
+  {{- range $org := $channel.orgs }}
+  {{- if $org.peers.enabled }}
   {{- $peerOrg := (include "fabric-operator-hlf.getOrg" (dict "Values" $root.Values "orgName" $org.name )) | fromYaml }}
   - &Peer{{ $org.name }}
     # DefaultOrg defines the organization which is used in the sampleconfig
@@ -107,6 +110,7 @@ Organizations:
       # encoded in the genesis block in the Application section context
       - Host: {{ (index $peerOrg.peers 0).name }}.{{ $root.Release.Namespace }}.svc.cluster.local
         Port: 7051
+  {{- end }}
   {{- end }}
 
 ################################################################################
@@ -195,17 +199,21 @@ Application: &ApplicationDefaults
     LifecycleEndorsement:
       Type: Signature
       {{- $orgMisp := list }}
-      {{- range $org := $channel.peerOrgs }}
+      {{- range $org := $channel.orgs }}
+      {{- if $org.peers.enabled }}
       {{- $peerOrg := (include "fabric-operator-hlf.getOrg" (dict "Values" $root.Values "orgName" $org.name )) | fromYaml }}
       {{- $orgMisp = printf "%s.peer" $peerOrg.mispID | squote | append $orgMisp }}
+      {{- end }}
       {{- end }}
       Rule: "OR({{ join "," $orgMisp }})"
     Endorsement:
       Type: Signature
       {{- $orgMisp := list }}
-      {{- range $org := $channel.peerOrgs }}
+      {{- range $org := $channel.orgs }}
+      {{- if $org.peers.enabled }}
       {{- $peerOrg := (include "fabric-operator-hlf.getOrg" (dict "Values" $root.Values "orgName" $org.name )) | fromYaml }}
       {{- $orgMisp = printf "%s.peer" $peerOrg.mispID | squote | append $orgMisp }}
+      {{- end }}
       {{- end }}
       Rule: "OR({{ join "," $orgMisp }})"
 
@@ -226,15 +234,17 @@ Orderer: &OrdererDefaults
 
   EtcdRaft:
     Consenters:
-    {{- range $org := $channel.ordererOrgs }}
+    {{- range $org := $channel.orgs }}
+    {{- if $org.orderers.enabled }}
     {{- $ordererOrg := (include "fabric-operator-hlf.getOrg" (dict "Values" $root.Values "orgName" $org.name )) | fromYaml }}
-    {{- $orderer := (include "fabric-operator-hlf.getOrderer" (dict "orderers" $ordererOrg.orderers "ordererName" $org.ordererName )) | fromYaml  }}
+    {{- $orderer := (include "fabric-operator-hlf.getOrderer" (dict "orderers" $ordererOrg.orderers "ordererName" $org.orderers.name )) | fromYaml  }}
     {{- range $num := until (int $orderer.clusterSize) }}
     {{- $num1 := add1 $num }}
       - Host: {{ $orderer.name }}node{{ $num1 }}.{{ $root.Release.Namespace }}.svc.cluster.local
         Port: 7050
         ClientTLSCert: {{ $root.Values.global.tmpPath }}/channel-msp/ordererOrganizations/{{ $org.name }}/orderers/{{ $orderer.name }}node{{ $num1 }}/tls/signcerts/tls-cert.pem
         ServerTLSCert: {{ $root.Values.global.tmpPath }}/channel-msp/ordererOrganizations/{{ $org.name }}/orderers/{{ $orderer.name }}node{{ $num1 }}/tls/signcerts/tls-cert.pem
+    {{- end }}
     {{- end }}
     {{- end }}
     # Options to be specified for all the etcd/raft nodes. The values here
@@ -354,15 +364,19 @@ Profiles:
     Orderer:
       <<: *OrdererDefaults
       Organizations:
-      {{- range $org := $channel.ordererOrgs }}
+      {{- range $org := $channel.orgs }}
+      {{- if $org.orderers.enabled }}
         - *Orderer{{ $org.name }}
+      {{- end }}
       {{- end }}
       Capabilities: *OrdererCapabilities
     Application:
       <<: *ApplicationDefaults
       Organizations:
-      {{- range $org := $channel.peerOrgs }}
+      {{- range $org := $channel.orgs }}
+      {{- if $org.peers.enabled }}
         - *Peer{{ $org.name }}
+      {{- end }}
       {{- end }}
       Capabilities: *ApplicationCapabilities
 

@@ -170,23 +170,29 @@ console:
 
 channels:
   - name: "demo1"
-    ordererOrgs:
+    orgs:
       - name: "org0"
-        ordererName: org0-orderers
         adminCreds:
           username: org0admin
           password: org0adminpw
-    peerOrgs:
-      - name: org1
+        orderers:
+          enabled: true
+          name: org0-orderers
+      - name: "org1"
         adminCreds:
           username: org1admin
           password: org1adminpw
-      - name: org2
+        peers:
+          enabled: true
+      - name: "org2"
         adminCreds:
           username: org2admin
           password: org2adminpw
+        peers:
+          enabled: true
+
     chaincodes:
-      - name: "ekoh-online-contract"
+      - name: "ekoh-online-events-contract"
         image: "560696278034.dkr.ecr.eu-west-1.amazonaws.com/ekoh-online/events-contract"
         digest: "sha256:7418e047065baba65c791cf18a99dc34d299f7e8426f54ac79ac3a7862254118"
         sequence: 1
