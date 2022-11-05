@@ -45,7 +45,7 @@ spec:
               value: "{{ $.Values.global.tmpPath }}"
           command:
             - bash
-            - -exc
+            - -c
             - |
               function channel_up() {
                 set -x
@@ -113,7 +113,7 @@ spec:
                 {{- end }}
                 {{- end }}
 
-                {{- $oOrg := first ((include "fabric-operator-hlf.getChannelOrdererOrgs" (dict "orgs" $channel.orgs )) | fromYaml) }} 
+                {{- $oOrg := first ((include "fabric-operator-hlf.getChannelOrdererOrgs" (dict "orgs" $channel.orgs )) | fromJsonArray) }} 
                 {{- $ordererOrg := (include "fabric-operator-hlf.getOrg" (dict "Values" $.Values "orgName" $oOrg.name )) | fromYaml }}
                 {{- $orderer := (include "fabric-operator-hlf.getOrderer" (dict "orderers" $ordererOrg.orderers "ordererName" ($oOrg.orderers).name )) | fromYaml  }}
                 {{- $num := (first (until (int ($orderer).clusterSize))) }}
@@ -132,9 +132,9 @@ spec:
 
                 {{- end }}
 
-                {{- $org := first ((include "fabric-operator-hlf.getChannelPeerOrgs" (dict "orgs" $channel.orgs )) | fromYaml) }} 
+                {{- $org := first ((include "fabric-operator-hlf.getChannelPeerOrgs" (dict "orgs" $channel.orgs )) | fromJsonArray) }} 
                 {{- $peerOrg := (include "fabric-operator-hlf.getOrg" (dict "Values" $.Values "orgName" $org.name )) | fromYaml }}
-                {{- $peer := (first (($peerOrg).peers)) }}
+                {{- $peer := first $peerOrg.peers }}
 
                 export FABRIC_CFG_PATH=${TEMP_DIR}/{{ $org.name }}/config
                 export CORE_PEER_ADDRESS={{ $peer.endpoint }}
@@ -143,9 +143,9 @@ spec:
                 export CORE_PEER_MSPCONFIGPATH=${TEMP_DIR}/enrollments/{{ $org.name }}/users/{{ $org.adminCreds.username }}/msp
                 export CORE_PEER_TLS_ROOTCERT_FILE=${TEMP_DIR}/channel-msp/peerOrganizations/{{ $org.name }}/msp/tlscacerts/tlsca-signcert.pem
 
-                {{- $oOrg := first ((include "fabric-operator-hlf.getChannelOrdererOrgs" (dict "orgs" $channel.orgs )) | fromYaml) }} 
+                {{- $oOrg := first ((include "fabric-operator-hlf.getChannelOrdererOrgs" (dict "orgs" $channel.orgs )) | fromJsonArray) }} 
                 {{- $ordererOrg := (include "fabric-operator-hlf.getOrg" (dict "Values" $.Values "orgName" $oOrg.name )) | fromYaml }}
-                {{- $orderer := (include "fabric-operator-hlf.getOrderer" (dict "orderers" $ordererOrg.orderers "ordererName" $oOrg.ordererName )) | fromYaml  }}
+                {{- $orderer := (include "fabric-operator-hlf.getOrderer" (dict "orderers" $ordererOrg.orderers "ordererName" $oOrg.orderers.name )) | fromYaml  }}
                 {{- $num := (first (until (int $orderer.clusterSize))) }}
                 {{- $num1 := add1 $num }}
 
@@ -253,7 +253,7 @@ spec:
 
               function create_channel_msp() {
                   {{- range $org := $channel.orgs }}
-                  {{- if $org.orderers.enabled }}
+                  {{- if ($org.orderers).enabled }}
                   create_channel_org_msp orderer {{ $org.name }}
                   {{- $ordererOrg := (include "fabric-operator-hlf.getOrg" (dict "Values" $.Values "orgName" $org.name )) | fromYaml }}
                   {{- $orderer := (include "fabric-operator-hlf.getOrderer" (dict "orderers" $ordererOrg.orderers "ordererName" $org.orderers.name )) | fromYaml  }}
@@ -265,7 +265,7 @@ spec:
                   {{- end }}
 
                   {{- range $org := $channel.orgs }}
-                  {{- if $org.peers.enabled }}
+                  {{- if ($org.peers).enabled }}
                   create_channel_org_msp peer {{ $org.name }}
                   {{- end }}
                   {{- end }}
@@ -321,13 +321,20 @@ spec:
 
               function join_channel_orderers() {
                 {{- range $org := $channel.orgs }}
-                {{- if $org.orderers.enabled }}
+                {{- if ($org.orderers).enabled }}
                 {{- $ordererOrg := (include "fabric-operator-hlf.getOrg" (dict "Values" $.Values "orgName" $org.name )) | fromYaml }}
                 {{- $orderer := (include "fabric-operator-hlf.getOrderer" (dict "orderers" $ordererOrg.orderers "ordererName" $org.orderers.name )) | fromYaml  }}
                 {{- range $num := until (int $orderer.clusterSize) }}
                 {{- $num1 := add1 $num }}
                 extract_orderer_tls_cert {{ $ordererOrg.name }} orderersnode{{ $num1 }}
                 join_channel_orderer {{ $org.name }} orderersnode{{ $num1 }}
+                osnadmin channel join \
+                    --orderer-address {{ $.Release.Namespace }}-{{ $org.name }}-orderersnode{{ $num1 }}-admin.{{ $.Values.global.domain }} \
+                    --ca-file         ${TEMP_DIR}/channel-msp/ordererOrganizations/{{ $org.name }}/orderers/{{ $org.name }}-orderersnode{{ $num1 }}/tls/signcerts/tls-cert.pem \
+                    --client-cert     ${TEMP_DIR}/enrollments/{{ $org.name }}/users/{{ $org.adminCreds.username }}/tls/signcerts/cert.pem \
+                    --client-key      ${TEMP_DIR}/enrollments/{{ $org.name }}/users/{{ $org.adminCreds.username }}/tls/keystore/key.pem \
+                    --channelID       {{ $channel.name }} \
+                    --config-block    ${TEMP_DIR}/genesis_block.pb
                 {{- end }}
                 {{- end }}
                 {{- end }}
@@ -336,26 +343,9 @@ spec:
                 sleep 10
               }
 
-                # Request from the channel ADMIN api that the orderer joins the target channel
-              function join_channel_orderer() {
-                local org=$1
-                local orderer=$2
-
-                # The client certificate presented in this case is the admin USER TLS enrollment key.  This is a stronger assertion
-                # of identity than the Docker Compose network, which transmits the orderer NODE TLS key pair directly
-
-                osnadmin channel join \
-                    --orderer-address {{ $.Release.Namespace }}-${org}-${orderer}-admin.{{ $.Values.global.domain }} \
-                    --ca-file         ${TEMP_DIR}/channel-msp/ordererOrganizations/${org}/orderers/${org}-${orderer}/tls/signcerts/tls-cert.pem \
-                    --client-cert     ${TEMP_DIR}/enrollments/${org}/users/${org}admin/tls/signcerts/cert.pem \
-                    --client-key      ${TEMP_DIR}/enrollments/${org}/users/${org}admin/tls/keystore/key.pem \
-                    --channelID       {{ $channel.name }} \
-                    --config-block    ${TEMP_DIR}/genesis_block.pb
-              }
-
               function join_channel_peers() {
                 {{- range $org := $channel.orgs }}
-                {{- if $org.peers.enabled }}
+                {{- if ($org.peers).enabled }}
                 {{- $peerOrg := (include "fabric-operator-hlf.getOrg" (dict "Values" $.Values "orgName" $org.name )) | fromYaml }}
                 {{- range $peer := $peerOrg.peers }}
 
@@ -384,23 +374,20 @@ spec:
             - name: {{ $org.name}}-peer-connection-profile
               mountPath: {{ $.Values.global.tmpPath }}/cas/{{ $org.name}}-ca/connection-profile.json
               subPath: profile.json
-            {{- if $org.peers.enabled}}
+            {{- if ($org.peers).enabled}}
             - name: {{ $channel.name }}-config
               mountPath: {{ $.Values.global.tmpPath }}/{{ $org.name }}/config/core.yaml
               subPath: {{ $org.name }}-core.yaml
             {{- end }}
-            {{- end }}
-            {{- if $org.orderers.enabled }}
+            {{- if ($org.orderers).enabled }}
             {{- $ordererOrg := (include "fabric-operator-hlf.getOrg" (dict "Values" $.Values "orgName" $org.name )) | fromYaml }}
-            - name: {{ $ordererOrg.name}}-orderer-connection-profile
-              mountPath: {{ $.Values.global.tmpPath }}/cas/{{ $ordererOrg.name}}-ca/connection-profile.json
-              subPath: profile.json
             {{- $orderer := (include "fabric-operator-hlf.getOrderer" (dict "orderers" $ordererOrg.orderers "ordererName" $org.orderers.name )) | fromYaml  }}
             {{- range $num := until (int $orderer.clusterSize) }}
             {{- $num1 := add1 $num }}
             - name:  {{ $ordererOrg.name }}-orderersnode{{ $num1 }}
               mountPath: {{ $.Values.global.tmpPath }}/channel-msp/ordererOrganizations/{{ $ordererOrg.name}}/orderers/{{ $ordererOrg.name }}-orderersnode{{ $num1 }}/connection-profile.json
               subPath: profile.json
+            {{- end }}
             {{- end }}
             {{- end }}
 {{- end }}

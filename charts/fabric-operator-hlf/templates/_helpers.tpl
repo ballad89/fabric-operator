@@ -130,10 +130,10 @@ Create the name of the service account to use
   {{- $channelOrgs := .orgs }}
   {{- range $o := $channelOrgs }}
     {{- if ($o.peers).enabled }}
-      {{ $newList := append $newList $o }}
+      {{ $newList = append $newList $o }}
     {{- end }}
   {{- end}}
-  {{- $newList | toYaml }}
+  {{- $newList | toJson }}
 {{- end }}
 
 {{- define "fabric-operator-hlf.getChannelOrdererOrgs" -}}
@@ -141,8 +141,8 @@ Create the name of the service account to use
   {{- $channelOrgs := .orgs }}
   {{- range $o := $channelOrgs }}
     {{- if ($o.orderers).enabled }}
-      {{ $newList := append $newList $o }}
+      {{ $newList = append $newList $o }}
     {{- end }}
   {{- end}}
-  {{- $newList | toYaml }}
+  {{- $newList | toJson  }}
 {{- end }}
