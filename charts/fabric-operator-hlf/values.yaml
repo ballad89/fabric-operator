@@ -196,3 +196,4 @@ channels:
         image: "560696278034.dkr.ecr.eu-west-1.amazonaws.com/ekoh-online/events-contract"
         digest: "sha256:7418e047065baba65c791cf18a99dc34d299f7e8426f54ac79ac3a7862254118"
         sequence: 1
+        initCommand: '{"function":"Initialize","Args":["Ekoh Ticket", "EKTKT"]}'
