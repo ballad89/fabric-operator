@@ -66,6 +66,7 @@ global:
         size: "5G"
       statedb:
         size: "10Gi"
+    statedb: "leveldb"
   configtxlator:
     image:
       repo: "hyperledger/fabric-tools"

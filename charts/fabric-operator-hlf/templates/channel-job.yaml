@@ -61,7 +61,7 @@ spec:
 
               function deploy_chaincodes() {
                 {{- range $chaincode := $channel.chaincodes }}
-                deploy_chaincode {{ $chaincode.name }} {{ $chaincode.image }} {{ $chaincode.digest }} {{ $chaincode.sequence }} {{ $chaincode.initCommand }}
+                deploy_chaincode {{ $chaincode.name }} {{ $chaincode.image }} {{ $chaincode.digest }} {{ $chaincode.sequence }} {{ $chaincode.initCommand | quote }}
                 {{- end }}
               }
 

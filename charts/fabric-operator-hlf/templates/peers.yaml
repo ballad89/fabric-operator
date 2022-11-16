@@ -31,6 +31,8 @@ items:
         peerTag: {{ (.peer).image.tag | default $.Values.global.peer.image.tag }}
         grpcwebImage: {{ (.grpc).image.repo | default $.Values.global.grpc.image.repo }}
         grpcwebTag: {{ (.grpc).image.tag | default $.Values.global.grpc.image.tag }}
+        couchdbImage: {{ (.couchdb).image.repo | default $.Values.global.couchdb.image.repo }}
+        couchdbTag: {{ (.couchdb).image.tag | default $.Values.global.couchdb.image.tag }}
       ingress:
         class: {{ (.ingress).class | default $.Values.global.ingress.class }}
         tlsSecretName: {{ (.ingress).tlsSecretName | default $.Values.global.ingress.tlsSecretName }}
@@ -63,7 +65,7 @@ items:
         peername: {{ .name }}
       service:
         type: {{ (.service).type | default $.Values.global.peer.service.type }}
-      stateDb: leveldb
+      stateDb: {{ .statedb | default $.Values.global.peer.statedb }} 
       storage:
         peer:
           class: {{ (.pvc).class | default $.Values.global.peer.pvc.class }}
@@ -78,7 +80,8 @@ items:
           {{- (toYaml ((.peer).resources | default $.Values.global.peer.resources)) | nindent 10 }}
         proxy:
           {{- (toYaml ((.proxy).resources | default $.Values.global.proxy.resources)) | nindent 10 }}
+        couchdb:
+          {{- (toYaml ((.couchdb).resources | default $.Values.global.couchdb.resources)) | nindent 10 }}
 {{- end }}
 {{- end }}
 {{- end }}
-
