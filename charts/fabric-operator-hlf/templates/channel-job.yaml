@@ -61,7 +61,7 @@ spec:
 
               function deploy_chaincodes() {
                 {{- range $chaincode := $channel.chaincodes }}
-                deploy_chaincode {{ $chaincode.name }} {{ $chaincode.image }} {{ $chaincode.digest }} {{ $chaincode.sequence }} {{ $chaincode.initCommand | quote }}
+                deploy_chaincode {{ $chaincode.name }} {{ $chaincode.image }} {{ $chaincode.digest }} {{ $chaincode.sequence }} '{{ $chaincode.initCommand }}'
                 {{- end }}
               }
 
@@ -163,7 +163,7 @@ spec:
                 peer chaincode invoke \
                 -n              ${cc_name} \
                 -C              {{ $channel.name }} \
-                -c              ${cc_init} \
+                -c              "${cc_init}" \
                 --orderer       {{ $.Release.Namespace }}-{{ $ordererOrg.name }}-orderersnode{{ $num1 }}-orderer.{{ $.Values.global.domain }}:443 \
                 --tls --cafile  {{ $.Values.global.tmpPath }}/channel-msp/ordererOrganizations/{{ $ordererOrg.name }}/orderers/{{ $orderer.name }}node{{ $num1 }}/tls/signcerts/tls-cert.pem \
                 --connTimeout   15s
@@ -336,7 +336,6 @@ spec:
                 {{- range $num := until (int $orderer.clusterSize) }}
                 {{- $num1 := add1 $num }}
                 extract_orderer_tls_cert {{ $ordererOrg.name }} orderersnode{{ $num1 }}
-                join_channel_orderer {{ $org.name }} orderersnode{{ $num1 }}
                 osnadmin channel join \
                     --orderer-address {{ $.Release.Namespace }}-{{ $org.name }}-orderersnode{{ $num1 }}-admin.{{ $.Values.global.domain }} \
                     --ca-file         ${TEMP_DIR}/channel-msp/ordererOrganizations/{{ $org.name }}/orderers/{{ $org.name }}-orderersnode{{ $num1 }}/tls/signcerts/tls-cert.pem \
